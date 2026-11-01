@@ -6,3 +6,6 @@ xcuserdata/
 DerivedData/
 Secrets.xcconfig
 .env
+
+# Discarded benchmark runs (bench/reset.sh)
+results/_discarded/

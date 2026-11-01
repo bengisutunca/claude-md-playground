@@ -39,6 +39,18 @@ if command -v caveman >/dev/null || ls "$HOME/.claude/plugins" 2>/dev/null | gre
   read -r _
 fi
 
+# Permissions are passed on the command line: project settings.json allow-lists are ignored
+# in worktrees that were never trusted interactively, which blocks every Write in -p mode.
+PERM_FLAGS=(
+  --permission-mode acceptEdits
+  --allowedTools "Read" "Edit" "Write" "Glob" "Grep" "MultiEdit" "TodoWrite"
+    "Bash(swift build:*)" "Bash(swift test:*)" "Bash(swift package:*)"
+    "Bash(mkdir:*)" "Bash(ls:*)" "Bash(cat:*)" "Bash(find:*)" "Bash(mv:*)" "Bash(rm:*)"
+    "Bash(cd:*)" "Bash(echo:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(grep:*)" "Bash(wc:*)"
+  --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" "Bash(git checkout:*)"
+    "Bash(git reset:*)" "WebFetch" "WebSearch"
+)
+
 EXTRA_FLAGS=()
 HELP=$(claude --help 2>&1 || true)
 # Load only the repo's own settings, so user-level plugins/hooks do not leak into either arm.
@@ -94,6 +106,7 @@ for task in "$ROOT"/bench/tasks/*.md; do
       --output-format json \
       --max-turns "$MAX_TURNS" \
       ${EXTRA_FLAGS[@]+"${EXTRA_FLAGS[@]}"} \
+      "${PERM_FLAGS[@]}" \
       > "$raw" 2> "$OUT/raw/$arm/$step.stderr"
     claude_exit=$?
     swift build > "$testlog" 2>&1 && swift test >> "$testlog" 2>&1
@@ -105,7 +118,7 @@ for task in "$ROOT"/bench/tasks/*.md; do
     git commit -q --allow-empty -m "$step ($arm, run $RUN)" \
       -m "tests: $([ $test_exit = 0 ] && echo pass || echo FAIL) · model: $MODEL"
     sha=$(git rev-parse --short HEAD)
-    files_changed=$(git show --shortstat --format= HEAD | tr -s ' ')
+    files_changed=$(git show --shortstat --format= HEAD | tr -s ' \n' ' ' | sed 's/^ *//;s/ *$//')
 
     python3 - "$raw" "$LOG" "$arm" "$step" "$RUN" "$MODEL" "$claude_exit" "$test_exit" "$wall" "$sha" "$files_changed" <<'PY'
 import json, sys
@@ -127,6 +140,7 @@ rec = {
     "output_tokens": u.get("output_tokens"),
     "is_error": d.get("is_error", True) or cexit != "0",
     "subtype": d.get("subtype"),
+    "permission_denials": len(d.get("permission_denials") or []),
     "tests_pass": texit == "0",
     "diff": diff.strip(),
 }
@@ -135,6 +149,13 @@ c = rec["cost_usd"]
 print(f"  cost ${c:.4f}" if c is not None else "  cost n/a", "· turns", rec["turns"],
       "· out", rec["output_tokens"], "· tests", "pass" if rec["tests_pass"] else "FAIL")
 PY
+    if [ -z "$files_changed" ]; then
+      echo
+      echo "✗ [$arm] $step changed no files. Last message from Claude:"
+      python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('result','')[:800])" "$raw" 2>/dev/null || true
+      echo "  Stopping so the run does not record empty steps. See $raw"
+      exit 1
+    fi
     cd "$ROOT"
   done
 done
