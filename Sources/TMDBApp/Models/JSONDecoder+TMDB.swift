@@ -24,6 +24,12 @@ enum TMDBDate {
         return calendar.date(from: DateComponents(year: y, month: m, day: d))
     }
 
+    /// Formats as `"yyyy-MM-dd"` (inverse of `parse`).
+    static func string(from date: Date) -> String {
+        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
     static func year(of date: Date) -> String {
         String(calendar.component(.year, from: date))
     }

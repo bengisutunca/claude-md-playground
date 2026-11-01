@@ -1,6 +1,6 @@
 import Foundation
 
-struct Movie: Identifiable, Hashable, Sendable, Decodable {
+struct Movie: Identifiable, Hashable, Sendable, Codable {
     let id: Int
     let title: String
     let overview: String
@@ -42,6 +42,30 @@ struct Movie: Identifiable, Hashable, Sendable, Decodable {
         voteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage) ?? 0
         voteCount = try c.decodeIfPresent(Int.self, forKey: .voteCount) ?? 0
         genreIDs = try c.decodeIfPresent([Int].self, forKey: .genreIDs) ?? []
+    }
+
+    /// Encodes with the same keys/date format that `init(from:)` reads, so values round-trip
+    /// through `JSONDecoder.tmdb`.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encode(overview, forKey: .overview)
+        try c.encodeIfPresent(posterPath, forKey: .posterPath)
+        try c.encodeIfPresent(backdropPath, forKey: .backdropPath)
+        try c.encodeIfPresent(releaseDate.map(TMDBDate.string(from:)), forKey: .releaseDate)
+        try c.encode(voteAverage, forKey: .voteAverage)
+        try c.encode(voteCount, forKey: .voteCount)
+        try c.encode(genreIDs, forKey: .genreIDs)
+    }
+}
+
+extension Movie {
+    init(detail: MovieDetail) {
+        self.init(id: detail.id, title: detail.title, overview: detail.overview,
+                  posterPath: detail.posterPath, backdropPath: detail.backdropPath,
+                  releaseDate: detail.releaseDate, voteAverage: detail.voteAverage,
+                  voteCount: detail.voteCount, genreIDs: detail.genres.map(\.id))
     }
 }
 

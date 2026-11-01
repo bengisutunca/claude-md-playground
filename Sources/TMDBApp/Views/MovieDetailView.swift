@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MovieDetailView: View {
     @State private var viewModel: MovieDetailViewModel
+    @Environment(FavoritesViewModel.self) private var favorites
     var imageURLBuilder = ImageURLBuilder()
 
     init(viewModel: MovieDetailViewModel) {
@@ -14,6 +15,20 @@ struct MovieDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .task { await viewModel.load() }
+            .toolbar {
+                if case .loaded(let content) = viewModel.state {
+                    let movie = Movie(detail: content.detail)
+                    let isFavorite = favorites.isFavorite(movie)
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            favorites.toggle(movie)
+                        } label: {
+                            Image(systemName: isFavorite ? "heart.fill" : "heart")
+                        }
+                        .accessibilityLabel(isFavorite ? "Remove from favorites" : "Add to favorites")
+                    }
+                }
+            }
     }
 
     @ViewBuilder
