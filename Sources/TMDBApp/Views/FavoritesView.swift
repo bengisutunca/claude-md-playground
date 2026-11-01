@@ -1,12 +1,15 @@
 import SwiftUI
 
+/// Saved favorites. Embed in a `NavigationStack`. Needs `FavoritesViewModel` in the environment.
 struct FavoritesView: View {
     @Environment(FavoritesViewModel.self) private var viewModel
 
     var body: some View {
         Group {
             if viewModel.favorites.isEmpty {
-                Text("No favorites yet.").foregroundStyle(.secondary)
+                EmptyStateView(
+                    title: "No Favorites", systemImage: "heart",
+                    message: "Tap the heart on a movie to save it here.")
             } else {
                 List {
                     ForEach(viewModel.favorites) { movie in
@@ -14,11 +17,23 @@ struct FavoritesView: View {
                     }
                     .onDelete { viewModel.remove(at: $0) }
                 }
-                #if os(iOS)
-                .listStyle(.plain)
-                #endif
+                .plainListStyle()
             }
         }
         .navigationTitle("Favorites")
     }
+}
+
+#Preview {
+    NavigationStack {
+        FavoritesView()
+    }
+    .environment(AppDependencies.preview.favorites)
+}
+
+#Preview("Empty") {
+    NavigationStack {
+        FavoritesView()
+    }
+    .environment(FavoritesViewModel(store: InMemoryFavoritesStore()))
 }

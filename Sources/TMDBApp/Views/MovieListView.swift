@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Popular movies. Embed in a `NavigationStack`.
 struct MovieListView: View {
     @State private var viewModel: MovieListViewModel
 
@@ -11,29 +12,21 @@ struct MovieListView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("Popular")
-                .navigationDestination(for: Movie.self) { movie in
-                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
-                }
-                .task { await viewModel.load() }
-        }
+        content
+            .navigationTitle("Popular")
+            .movieDetailDestination(service: service)
+            .task { await viewModel.load() }
     }
 
     @ViewBuilder
     private var content: some View {
         switch viewModel.state {
         case .idle, .loading:
-            ProgressView()
+            LoadingView()
         case .empty:
-            Text("No movies found.").foregroundStyle(.secondary)
+            EmptyStateView(title: "No Movies", systemImage: "film", message: "No popular movies found.")
         case .failed(let message):
-            VStack(spacing: 12) {
-                Text(message).multilineTextAlignment(.center)
-                Button("Retry") { Task { await viewModel.load() } }
-            }
-            .padding()
+            ErrorView(message: message) { Task { await viewModel.load() } }
         case .loaded(let movies):
             List {
                 ForEach(movies) { movie in
@@ -48,10 +41,16 @@ struct MovieListView: View {
                     ProgressView().frame(maxWidth: .infinity)
                 }
             }
-            #if os(iOS)
-            .listStyle(.plain)
-            #endif
+            .plainListStyle()
             .refreshable { await viewModel.refresh() }
         }
     }
+}
+
+#Preview {
+    let dependencies = AppDependencies.preview
+    NavigationStack {
+        MovieListView(viewModel: dependencies.makeMovieListViewModel(), service: dependencies.service)
+    }
+    .environment(dependencies.favorites)
 }

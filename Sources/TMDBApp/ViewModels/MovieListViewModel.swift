@@ -94,7 +94,7 @@ final class MovieListViewModel {
         case .decoding, .invalidResponse:
             return "Received an unexpected response from the server."
         case .missingAPIKey:
-            return "API key is missing."
+            return "TMDB API key is missing. Set TMDB_API_KEY in the environment or Info.plist, then relaunch."
         }
     }
 }

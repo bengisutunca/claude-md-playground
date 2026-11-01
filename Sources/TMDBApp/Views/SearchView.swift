@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Movie search. Embed in a `NavigationStack`.
 struct SearchView: View {
     @State private var viewModel: SearchViewModel
 
@@ -11,39 +12,45 @@ struct SearchView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("Search")
-                .navigationDestination(for: Movie.self) { movie in
-                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
-                }
-                .searchable(text: $viewModel.query, prompt: "Search movies")
-                #if os(iOS)
-                .textInputAutocapitalization(.never)
-                #endif
-        }
+        content
+            .navigationTitle("Search")
+            .movieDetailDestination(service: service)
+            .searchable(text: $viewModel.query, prompt: "Search movies")
+            #if os(iOS)
+            .textInputAutocapitalization(.never)
+            #endif
     }
 
     @ViewBuilder
     private var content: some View {
         switch viewModel.state {
         case .idle:
-            Text("Type at least 2 characters to search.").foregroundStyle(.secondary)
+            EmptyStateView(
+                title: "Search Movies", systemImage: "magnifyingglass",
+                message: "Type at least \(SearchViewModel.minimumQueryLength) characters to search.")
         case .loading:
-            ProgressView()
+            LoadingView()
         case .empty:
-            Text("No movies found for \"\(viewModel.query)\".").foregroundStyle(.secondary)
+            EmptyStateView(
+                title: "No Results", systemImage: "film",
+                message: "No movies found for \"\(viewModel.query)\".")
         case .failed(let message):
-            Text(message).multilineTextAlignment(.center).padding()
+            ErrorView(message: message) { viewModel.retry() }
         case .loaded(let movies):
             List(movies) { movie in
                 NavigationLink(value: movie) {
                     MovieRowView(movie: movie)
                 }
             }
-            #if os(iOS)
-            .listStyle(.plain)
-            #endif
+            .plainListStyle()
         }
     }
+}
+
+#Preview {
+    let dependencies = AppDependencies.preview
+    NavigationStack {
+        SearchView(viewModel: dependencies.makeSearchViewModel(), service: dependencies.service)
+    }
+    .environment(dependencies.favorites)
 }

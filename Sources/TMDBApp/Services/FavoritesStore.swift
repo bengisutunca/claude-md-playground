@@ -6,6 +6,18 @@ protocol FavoritesStore {
     func save(_ movies: [Movie])
 }
 
+/// Keeps favorites in memory only. For previews.
+final class InMemoryFavoritesStore: FavoritesStore {
+    private var movies: [Movie]
+
+    init(_ movies: [Movie] = []) {
+        self.movies = movies
+    }
+
+    func load() -> [Movie] { movies }
+    func save(_ movies: [Movie]) { self.movies = movies }
+}
+
 struct UserDefaultsFavoritesStore: FavoritesStore, @unchecked Sendable {
     static let defaultKey = "favorites.movies"
 

@@ -37,6 +37,11 @@ final class SearchViewModel {
         return []
     }
 
+    /// Runs the current query again, e.g. after a failure.
+    func retry() {
+        queryDidChange()
+    }
+
     private func queryDidChange() {
         searchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)

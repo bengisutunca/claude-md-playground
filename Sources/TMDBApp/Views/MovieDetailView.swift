@@ -37,15 +37,11 @@ struct MovieDetailView: View {
     private var content: some View {
         switch viewModel.state {
         case .idle, .loading:
-            ProgressView()
+            LoadingView()
         case .empty:
-            Text("No details available.").foregroundStyle(.secondary)
+            EmptyStateView(title: "No Details", systemImage: "film", message: "No details available.")
         case .failed(let message):
-            VStack(spacing: 12) {
-                Text(message).multilineTextAlignment(.center)
-                Button("Retry") { Task { await viewModel.load() } }
-            }
-            .padding()
+            ErrorView(message: message) { Task { await viewModel.load() } }
         case .loaded(let content):
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -129,16 +125,23 @@ struct MovieDetailView: View {
     }
 
     private func image(path: String?, size: ImageURLBuilder.Size, placeholder: String) -> some View {
-        AsyncImage(url: imageURLBuilder.url(path: path, size: size)) { phase in
-            switch phase {
-            case .success(let image):
-                image.resizable().scaledToFill()
-            default:
-                ZStack {
-                    Color.gray.opacity(0.2)
-                    Image(systemName: placeholder).foregroundStyle(.secondary)
-                }
-            }
+        RemoteImage(url: imageURLBuilder.url(path: path, size: size), placeholder: placeholder)
+    }
+}
+
+extension View {
+    /// Pushes `MovieDetailView` for any `Movie` value in the enclosing `NavigationStack`.
+    func movieDetailDestination(service: MovieService) -> some View {
+        navigationDestination(for: Movie.self) { movie in
+            MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
         }
     }
+}
+
+#Preview {
+    let dependencies = AppDependencies.preview
+    NavigationStack {
+        MovieDetailView(viewModel: MovieDetailViewModel(movieID: 27205, service: dependencies.service))
+    }
+    .environment(dependencies.favorites)
 }
