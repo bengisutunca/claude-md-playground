@@ -3,17 +3,25 @@ import SwiftUI
 struct SearchView: View {
     @State private var viewModel: SearchViewModel
 
-    init(viewModel: SearchViewModel) {
+    private let service: MovieService
+
+    init(viewModel: SearchViewModel, service: MovieService) {
         _viewModel = State(initialValue: viewModel)
+        self.service = service
     }
 
     var body: some View {
-        content
-            .navigationTitle("Search")
-            .searchable(text: $viewModel.query, prompt: "Search movies")
-            #if os(iOS)
-            .textInputAutocapitalization(.never)
-            #endif
+        NavigationStack {
+            content
+                .navigationTitle("Search")
+                .navigationDestination(for: Movie.self) { movie in
+                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
+                }
+                .searchable(text: $viewModel.query, prompt: "Search movies")
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                #endif
+        }
     }
 
     @ViewBuilder
@@ -29,7 +37,9 @@ struct SearchView: View {
             Text(message).multilineTextAlignment(.center).padding()
         case .loaded(let movies):
             List(movies) { movie in
-                MovieRowView(movie: movie)
+                NavigationLink(value: movie) {
+                    MovieRowView(movie: movie)
+                }
             }
             #if os(iOS)
             .listStyle(.plain)
