@@ -1,0 +1,55 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.12s)
+Test Suite 'All tests' started at 2026-11-02 01:08:57.932.
+Test Suite 'All tests' passed at 2026-11-02 01:08:57.934.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Smoke" started.
+◇ Suite "Networking" started.
+◇ Suite "Model decoding" started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test emptyReleaseDateIsNil() started.
+◇ Test movieDetail() started.
+◇ Test ratingTextOneDecimal() started.
+◇ Test baseURLsAreValid() started.
+◇ Test popularPage1() started.
+◇ Test nullImagePaths() started.
+◇ Test credits() started.
+◇ Test successDecodesPopular() started.
+✔ Test ratingTextOneDecimal() passed after 0.001 seconds.
+✔ Test baseURLsAreValid() passed after 0.001 seconds.
+✔ Test credits() passed after 0.003 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.003 seconds.
+✔ Suite "Smoke" passed after 0.003 seconds.
+✔ Test emptyReleaseDateIsNil() passed after 0.005 seconds.
+✔ Test movieDetail() passed after 0.005 seconds.
+✔ Test nullImagePaths() passed after 0.005 seconds.
+✔ Test popularPage1() passed after 0.005 seconds.
+✔ Suite "Model decoding" passed after 0.006 seconds.
+✔ Test successDecodesPopular() passed after 0.006 seconds.
+◇ Test unauthorizedMapsToHTTPStatus() started.
+✔ Test unauthorizedMapsToHTTPStatus() passed after 0.001 seconds.
+◇ Test malformedBodyMapsToDecoding() started.
+✔ Test malformedBodyMapsToDecoding() passed after 0.001 seconds.
+◇ Test transportFailureMapsToTransport() started.
+✔ Test transportFailureMapsToTransport() passed after 0.001 seconds.
+◇ Test popularQuery() started.
+✔ Test popularQuery() passed after 0.001 seconds.
+◇ Test searchQuery() started.
+✔ Test searchQuery() passed after 0.001 seconds.
+◇ Test movieDetailQuery() started.
+✔ Test movieDetailQuery() passed after 0.001 seconds.
+◇ Test creditsQuery() started.
+✔ Test creditsQuery() passed after 0.001 seconds.
+◇ Test configurationPrefersEnvironmentAndThrowsWhenMissing() started.
+✔ Test configurationPrefersEnvironmentAndThrowsWhenMissing() passed after 0.001 seconds.
+✔ Suite "Networking" passed after 0.009 seconds.
+✔ Test run with 17 tests in 3 suites passed after 0.009 seconds.

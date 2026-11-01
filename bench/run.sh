@@ -101,14 +101,28 @@ for task in "$ROOT"/bench/tasks/*.md; do
 
     start=$(date +%s)
     set +e
-    claude -p "$(cat "$task")" \
-      --model "$MODEL" \
-      --output-format json \
-      --max-turns "$MAX_TURNS" \
-      ${EXTRA_FLAGS[@]+"${EXTRA_FLAGS[@]}"} \
-      "${PERM_FLAGS[@]}" \
-      > "$raw" 2> "$OUT/raw/$arm/$step.stderr"
-    claude_exit=$?
+    # Retry when the session dies on a network/API error (nothing useful was done):
+    # the worktree is reset and the step starts over in a fresh session.
+    for attempt in 1 2 3; do
+      claude -p "$(cat "$task")" \
+        --model "$MODEL" \
+        --output-format json \
+        --max-turns "$MAX_TURNS" \
+        ${EXTRA_FLAGS[@]+"${EXTRA_FLAGS[@]}"} \
+        "${PERM_FLAGS[@]}" \
+        > "$raw" 2> "$OUT/raw/$arm/$step.stderr"
+      claude_exit=$?
+      if python3 -c "import json,sys;d=json.load(open(sys.argv[1]));sys.exit(0 if d.get('terminal_reason')=='api_error' or d.get('api_error_status') else 1)" "$raw" 2>/dev/null \
+         || [ ! -s "$raw" ]; then
+        echo "  ⚠ API/network error on attempt $attempt, retrying in 30 s"
+        mkdir -p "$OUT/raw/$arm/failed"
+        cp "$raw" "$OUT/raw/$arm/failed/$step.attempt$attempt.json" 2>/dev/null || true
+        git reset -q --hard && git clean -fdq
+        sleep 30
+        continue
+      fi
+      break
+    done
     swift build > "$testlog" 2>&1 && swift test >> "$testlog" 2>&1
     test_exit=$?
     set -e
