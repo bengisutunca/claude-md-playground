@@ -3,6 +3,8 @@ import SwiftUI
 struct MovieDetailView: View {
     @State private var viewModel: MovieDetailViewModel
     var imageURLBuilder = ImageURLBuilder()
+    /// Injected with `.environment(_:)`. Heart button hidden when absent.
+    @Environment(FavoritesViewModel.self) private var favorites: FavoritesViewModel?
 
     init(viewModel: MovieDetailViewModel) {
         _viewModel = State(initialValue: viewModel)
@@ -14,6 +16,20 @@ struct MovieDetailView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .toolbar {
+                if let favorites, case .loaded(let content) = viewModel.state {
+                    let movie = Movie(detail: content.detail)
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            favorites.toggle(movie)
+                        } label: {
+                            Image(systemName: favorites.isFavorite(movie) ? "heart.fill" : "heart")
+                        }
+                        .accessibilityLabel(
+                            favorites.isFavorite(movie) ? "Remove from favorites" : "Add to favorites")
+                    }
+                }
+            }
             .task { await viewModel.load() }
     }
 

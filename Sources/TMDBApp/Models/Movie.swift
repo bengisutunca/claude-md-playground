@@ -1,6 +1,6 @@
 import Foundation
 
-struct Movie: Identifiable, Hashable, Sendable, Decodable {
+struct Movie: Identifiable, Hashable, Sendable, Codable {
     let id: Int
     let title: String
     let overview: String
@@ -44,6 +44,28 @@ struct Movie: Identifiable, Hashable, Sendable, Decodable {
         voteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage) ?? 0
         voteCount = try c.decodeIfPresent(Int.self, forKey: .voteCount) ?? 0
         genreIDs = try c.decodeIfPresent([Int].self, forKey: .genreIDs) ?? []
+    }
+
+    /// Summary built from a full detail payload.
+    init(detail: MovieDetail) {
+        self.init(
+            id: detail.id, title: detail.title, overview: detail.overview,
+            posterPath: detail.posterPath, backdropPath: detail.backdropPath,
+            releaseDate: detail.releaseDate, voteAverage: detail.voteAverage,
+            voteCount: detail.voteCount, genreIDs: detail.genres.map(\.id))
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encode(overview, forKey: .overview)
+        try c.encodeIfPresent(posterPath, forKey: .posterPath)
+        try c.encodeIfPresent(backdropPath, forKey: .backdropPath)
+        try c.encodeIfPresent(TMDBDate.string(from: releaseDate), forKey: .releaseDate)
+        try c.encode(voteAverage, forKey: .voteAverage)
+        try c.encode(voteCount, forKey: .voteCount)
+        try c.encode(genreIDs, forKey: .genreIDs)
     }
 
     /// Release year, e.g. "2010". `nil` when release date is unknown.

@@ -27,6 +27,17 @@ enum TMDBDate {
         return formatter.date(from: string)
     }
 
+    /// Formats as `"yyyy-MM-dd"` (UTC). `nil` gives `nil`.
+    static func string(from date: Date?) -> String? {
+        guard let date else { return nil }
+        let formatter = DateFormatter()
+        formatter.calendar = utcCalendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
     static func year(of date: Date?) -> String? {
         guard let date else { return nil }
         return String(utcCalendar.component(.year, from: date))
