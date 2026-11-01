@@ -2,15 +2,22 @@ import SwiftUI
 
 struct MovieListView: View {
     @State private var viewModel: MovieListViewModel
+    private let service: any MovieService
 
-    init(viewModel: MovieListViewModel) {
+    init(viewModel: MovieListViewModel, service: any MovieService) {
         _viewModel = State(initialValue: viewModel)
+        self.service = service
     }
 
     var body: some View {
-        content
-            .navigationTitle("Popular")
-            .task { await viewModel.load() }
+        NavigationStack {
+            content
+                .navigationTitle("Popular")
+                .task { await viewModel.load() }
+                .navigationDestination(for: Movie.self) { movie in
+                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
+                }
+        }
     }
 
     @ViewBuilder
@@ -25,7 +32,7 @@ struct MovieListView: View {
         case .loaded(let movies):
             List {
                 ForEach(movies) { movie in
-                    MovieRowView(movie: movie)
+                    NavigationLink(value: movie) { MovieRowView(movie: movie) }
                         .task { await viewModel.loadNextPageIfNeeded(currentItem: movie) }
                 }
                 footer
