@@ -1,0 +1,105 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/inception_bg.jpg",
+      "genre_ids": [
+        28,
+        878,
+        12
+      ],
+      "id": 27205,
+      "original_language": "en",
+      "original_title": "Inception",
+      "overview": "A thief who steals secrets through shared dreams is offered one last job: planting an idea instead of taking one.",
+      "popularity": 92.5,
+      "poster_path": "/inception.jpg",
+      "release_date": "2010-07-15",
+      "title": "Inception",
+      "video": false,
+      "vote_average": 8.4,
+      "vote_count": 37000
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/interstellar_bg.jpg",
+      "genre_ids": [
+        12,
+        18,
+        878
+      ],
+      "id": 157336,
+      "original_language": "en",
+      "original_title": "Interstellar",
+      "overview": "A team of explorers travels through a wormhole in search of a new home for humanity.",
+      "popularity": 88.1,
+      "poster_path": "/interstellar.jpg",
+      "release_date": "2014-11-05",
+      "title": "Interstellar",
+      "video": false,
+      "vote_average": 8.4,
+      "vote_count": 36000
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/dark_knight_bg.jpg",
+      "genre_ids": [
+        18,
+        28,
+        80,
+        53
+      ],
+      "id": 155,
+      "original_language": "en",
+      "original_title": "The Dark Knight",
+      "overview": "Batman faces a criminal mastermind who wants to plunge Gotham into chaos.",
+      "popularity": 81.3,
+      "poster_path": "/dark_knight.jpg",
+      "release_date": "2008-07-16",
+      "title": "The Dark Knight",
+      "video": false,
+      "vote_average": 8.5,
+      "vote_count": 33000
+    },
+    {
+      "adult": false,
+      "backdrop_path": null,
+      "genre_ids": [
+        18,
+        80
+      ],
+      "id": 278,
+      "original_language": "en",
+      "original_title": "The Shawshank Redemption",
+      "overview": "Two imprisoned men build a lasting friendship over decades behind bars.",
+      "popularity": 75.0,
+      "poster_path": "/shawshank.jpg",
+      "release_date": "1994-09-23",
+      "title": "The Shawshank Redemption",
+      "video": false,
+      "vote_average": 8.7,
+      "vote_count": 28000
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/fight_club_bg.jpg",
+      "genre_ids": [
+        18
+      ],
+      "id": 550,
+      "original_language": "en",
+      "original_title": "Fight Club",
+      "overview": "An office worker and a soap salesman start an underground fight club.",
+      "popularity": 70.2,
+      "poster_path": null,
+      "release_date": "1999-10-15",
+      "title": "Fight Club",
+      "video": false,
+      "vote_average": 8.4,
+      "vote_count": 30000
+    }
+  ],
+  "total_pages": 2,
+  "total_results": 7
+}

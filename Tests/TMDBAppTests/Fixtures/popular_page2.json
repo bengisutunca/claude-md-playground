@@ -1,0 +1,47 @@
+{
+  "page": 2,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/spirited_away_bg.jpg",
+      "genre_ids": [
+        16,
+        10751,
+        14
+      ],
+      "id": 129,
+      "original_language": "en",
+      "original_title": "Spirited Away",
+      "overview": "A girl wanders into a world of spirits and must work to free her parents.",
+      "popularity": 60.4,
+      "poster_path": "/spirited_away.jpg",
+      "release_date": "2001-07-20",
+      "title": "Spirited Away",
+      "video": false,
+      "vote_average": 8.5,
+      "vote_count": 17000
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/parasite_bg.jpg",
+      "genre_ids": [
+        35,
+        53,
+        18
+      ],
+      "id": 496243,
+      "original_language": "en",
+      "original_title": "Parasite",
+      "overview": "A poor family schemes its way into the household of a wealthy one.",
+      "popularity": 58.9,
+      "poster_path": "/parasite.jpg",
+      "release_date": "",
+      "title": "Parasite",
+      "video": false,
+      "vote_average": 8.5,
+      "vote_count": 19000
+    }
+  ],
+  "total_pages": 2,
+  "total_results": 7
+}

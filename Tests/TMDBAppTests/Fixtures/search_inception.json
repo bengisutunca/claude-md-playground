@@ -1,0 +1,27 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/inception_bg.jpg",
+      "genre_ids": [
+        28,
+        878,
+        12
+      ],
+      "id": 27205,
+      "original_language": "en",
+      "original_title": "Inception",
+      "overview": "A thief who steals secrets through shared dreams is offered one last job: planting an idea instead of taking one.",
+      "popularity": 92.5,
+      "poster_path": "/inception.jpg",
+      "release_date": "2010-07-15",
+      "title": "Inception",
+      "video": false,
+      "vote_average": 8.4,
+      "vote_count": 37000
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 1
+}

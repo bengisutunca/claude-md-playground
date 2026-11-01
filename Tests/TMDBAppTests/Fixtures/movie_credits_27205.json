@@ -1,0 +1,42 @@
+{
+  "id": 27205,
+  "cast": [
+    {
+      "id": 6193,
+      "name": "Leonardo DiCaprio",
+      "character": "Cobb",
+      "order": 0,
+      "profile_path": "/dicaprio.jpg"
+    },
+    {
+      "id": 24045,
+      "name": "Joseph Gordon-Levitt",
+      "character": "Arthur",
+      "order": 1,
+      "profile_path": "/jgl.jpg"
+    },
+    {
+      "id": 27578,
+      "name": "Elliot Page",
+      "character": "Ariadne",
+      "order": 2,
+      "profile_path": null
+    },
+    {
+      "id": 2524,
+      "name": "Tom Hardy",
+      "character": "Eames",
+      "order": 3,
+      "profile_path": "/hardy.jpg"
+    }
+  ],
+  "crew": [
+    {
+      "id": 525,
+      "name": "Christopher Nolan",
+      "job": "Director",
+      "department": "Directing",
+      "profile_path": "/nolan.jpg"
+    }
+  ]
+}
