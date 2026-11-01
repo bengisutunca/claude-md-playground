@@ -8,7 +8,7 @@ struct APIConfiguration: Sendable {
     let apiKey: String
     let baseURL: URL
 
-    init(apiKey: String, baseURL: URL = URL(string: "https://api.themoviedb.org/3")!) {
+    init(apiKey: String, baseURL: URL = TMDBApp.apiBaseURL) {
         self.apiKey = apiKey
         self.baseURL = baseURL
     }

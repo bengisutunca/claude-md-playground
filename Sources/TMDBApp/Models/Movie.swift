@@ -69,8 +69,4 @@ extension Movie {
     }
 }
 
-extension Movie {
-    var year: String? { releaseDate.map(TMDBDate.year(of:)) }
-
-    var ratingText: String { String(format: "%.1f", voteAverage) }
-}
+extension Movie: ReleaseDated {}

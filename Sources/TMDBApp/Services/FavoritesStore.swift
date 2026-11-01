@@ -6,6 +6,16 @@ protocol FavoritesStore {
     func save(_ movies: [Movie])
 }
 
+/// Non-persistent store for previews and tests.
+final class InMemoryFavoritesStore: FavoritesStore {
+    private var movies: [Movie]
+
+    init(_ movies: [Movie] = []) { self.movies = movies }
+
+    func load() -> [Movie] { movies }
+    func save(_ movies: [Movie]) { self.movies = movies }
+}
+
 struct UserDefaultsFavoritesStore: FavoritesStore {
     static let defaultKey = "favorites.movies"
 

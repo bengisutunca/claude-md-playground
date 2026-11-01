@@ -60,7 +60,7 @@ final class MovieDetailViewModel {
         } catch is CancellationError {
             state = .idle
         } catch {
-            state = .failed(MovieListViewModel.message(for: error))
+            state = .failed(error.userMessage)
         }
     }
 

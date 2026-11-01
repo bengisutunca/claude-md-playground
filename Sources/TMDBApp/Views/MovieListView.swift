@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Popular movies. Expects to be hosted in a `NavigationStack` (see `RootView`).
 struct MovieListView: View {
     @State private var viewModel: MovieListViewModel
     private let service: any MovieService
@@ -10,25 +11,23 @@ struct MovieListView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("Popular")
-                .task { await viewModel.load() }
-                .navigationDestination(for: Movie.self) { movie in
-                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
-                }
-        }
+        content
+            .navigationTitle("Popular")
+            .task { await viewModel.load() }
+            .navigationDestination(for: Movie.self) { movie in
+                MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
+            }
     }
 
     @ViewBuilder
     private var content: some View {
         switch viewModel.state {
         case .idle, .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingView()
         case .empty:
-            message("No movies found.", retry: false)
+            EmptyStateView(title: "No Movies", systemImage: "film")
         case .failed(let text):
-            message(text, retry: true)
+            ErrorView(message: text) { Task { await viewModel.refresh() } }
         case .loaded(let movies):
             List {
                 ForEach(movies) { movie in
@@ -55,16 +54,12 @@ struct MovieListView: View {
             .frame(maxWidth: .infinity)
         }
     }
+}
 
-    private func message(_ text: String, retry: Bool) -> some View {
-        VStack(spacing: 12) {
-            Text(text).multilineTextAlignment(.center).foregroundStyle(.secondary)
-            if retry {
-                Button("Try Again") { Task { await viewModel.refresh() } }
-                    .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+#Preview {
+    let dependencies = AppDependencies.preview
+    return NavigationStack {
+        MovieListView(viewModel: dependencies.makeMovieListViewModel(), service: dependencies.movieService)
     }
+    .environment(dependencies.favorites)
 }

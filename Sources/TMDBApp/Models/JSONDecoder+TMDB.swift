@@ -35,6 +35,18 @@ enum TMDBDate {
     }
 }
 
+/// Shared display helpers for types carrying a release date and a vote average.
+protocol ReleaseDated {
+    var releaseDate: Date? { get }
+    var voteAverage: Double { get }
+}
+
+extension ReleaseDated {
+    var year: String? { releaseDate.map(TMDBDate.year(of:)) }
+
+    var ratingText: String { String(format: "%.1f", voteAverage) }
+}
+
 extension KeyedDecodingContainer {
     /// Decodes an optional TMDB date, treating missing, null, or empty string as nil.
     func decodeTMDBDate(forKey key: Key) throws -> Date? {

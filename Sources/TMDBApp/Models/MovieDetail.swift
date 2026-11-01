@@ -36,8 +36,4 @@ struct MovieDetail: Identifiable, Hashable, Sendable, Decodable {
     }
 }
 
-extension MovieDetail {
-    var year: String? { releaseDate.map(TMDBDate.year(of:)) }
-
-    var ratingText: String { String(format: "%.1f", voteAverage) }
-}
+extension MovieDetail: ReleaseDated {}

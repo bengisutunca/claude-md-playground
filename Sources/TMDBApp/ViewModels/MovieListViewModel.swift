@@ -72,29 +72,12 @@ final class MovieListViewModel {
             return
         } catch {
             guard token == generation else { return }
-            let message = Self.message(for: error)
+            let message = error.userMessage
             if movies.isEmpty {
                 state = .failed(message)
             } else {
                 paginationError = message
             }
-        }
-    }
-
-    static func message(for error: Error) -> String {
-        guard let apiError = error as? APIError else {
-            return "Something went wrong. Please try again."
-        }
-        switch apiError {
-        case .missingAPIKey:
-            return "The TMDB API key is missing."
-        case .httpStatus(let code, let message):
-            if code == 401 { return "Invalid API key." }
-            return message ?? "The server returned an error (\(code))."
-        case .transport:
-            return "Couldn't reach the server. Check your connection."
-        case .decoding, .invalidResponse:
-            return "Received an unexpected response from the server."
         }
     }
 }

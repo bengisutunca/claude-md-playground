@@ -35,6 +35,11 @@ final class SearchViewModel {
         await searchTask?.value
     }
 
+    /// Re-runs the search for the current query (e.g. after a failure).
+    func retry() {
+        queryDidChange()
+    }
+
     private func queryDidChange() {
         searchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -60,7 +65,7 @@ final class SearchViewModel {
             return
         } catch {
             guard !Task.isCancelled else { return }
-            state = .failed(MovieListViewModel.message(for: error))
+            state = .failed(error.userMessage)
         }
     }
 }

@@ -3,7 +3,6 @@ import SwiftUI
 struct MovieDetailView: View {
     @State private var viewModel: MovieDetailViewModel
     @Environment(FavoritesViewModel.self) private var favorites
-    var imageURLBuilder = ImageURLBuilder()
 
     init(viewModel: MovieDetailViewModel) {
         _viewModel = State(initialValue: viewModel)
@@ -35,11 +34,11 @@ struct MovieDetailView: View {
     private var content: some View {
         switch viewModel.state {
         case .idle, .loading:
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingView()
         case .empty:
-            message("No details available.", retry: false)
+            EmptyStateView(title: "No Details", systemImage: "film")
         case .failed(let text):
-            message(text, retry: true)
+            ErrorView(message: text) { Task { await viewModel.retry() } }
         case .loaded(let content):
             ScrollView { loaded(content) }
         }
@@ -50,7 +49,7 @@ struct MovieDetailView: View {
         return VStack(alignment: .leading, spacing: 16) {
             backdrop(detail.backdropPath)
             HStack(alignment: .bottom, spacing: 12) {
-                image(detail.posterPath, size: .w342)
+                PosterImage(path: detail.posterPath, size: .w342)
                     .frame(width: 100, height: 150)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 6) {
@@ -90,7 +89,7 @@ struct MovieDetailView: View {
                     LazyHStack(alignment: .top, spacing: 12) {
                         ForEach(content.cast) { member in
                             VStack(spacing: 4) {
-                                image(member.profilePath, size: .w185)
+                                PosterImage(path: member.profilePath, size: .w185)
                                     .frame(width: 80, height: 120)
                                     .clipShape(RoundedRectangle(cornerRadius: 6))
                                 Text(member.name).font(.caption.bold()).lineLimit(2)
@@ -110,32 +109,17 @@ struct MovieDetailView: View {
     }
 
     private func backdrop(_ path: String?) -> some View {
-        image(path, size: .w780)
+        PosterImage(path: path, size: .w780)
             .frame(maxWidth: .infinity)
             .frame(height: 200)
             .clipped()
     }
+}
 
-    private func image(_ path: String?, size: ImageURLBuilder.Size) -> some View {
-        AsyncImage(url: imageURLBuilder.url(path: path, size: size)) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            ZStack {
-                Rectangle().fill(.quaternary)
-                Image(systemName: "film").foregroundStyle(.secondary)
-            }
-        }
+#Preview {
+    let dependencies = AppDependencies.preview
+    return NavigationStack {
+        MovieDetailView(viewModel: MovieDetailViewModel(movieID: 1, service: dependencies.movieService))
     }
-
-    private func message(_ text: String, retry: Bool) -> some View {
-        VStack(spacing: 12) {
-            Text(text).multilineTextAlignment(.center).foregroundStyle(.secondary)
-            if retry {
-                Button("Try Again") { Task { await viewModel.retry() } }
-                    .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
+    .environment(dependencies.favorites)
 }
