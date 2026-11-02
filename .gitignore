@@ -9,3 +9,4 @@ Secrets.xcconfig
 
 # Discarded benchmark runs (bench/reset.sh)
 results/_discarded/
+__pycache__/

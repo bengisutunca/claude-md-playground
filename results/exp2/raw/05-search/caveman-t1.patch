@@ -1,0 +1,222 @@
+diff --git a/Sources/TMDBApp/ViewModels/SearchViewModel.swift b/Sources/TMDBApp/ViewModels/SearchViewModel.swift
+new file mode 100644
+index 0000000..eb4d8bf
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/SearchViewModel.swift
+@@ -0,0 +1,72 @@
++import Foundation
++import Observation
++
++@MainActor
++@Observable
++final class SearchViewModel {
++    static let minimumQueryLength = 2
++
++    private(set) var state: ViewState<[Movie]> = .idle
++
++    var query: String = "" {
++        didSet {
++            guard query != oldValue else { return }
++            scheduleSearch()
++        }
++    }
++
++    @ObservationIgnored private let service: any MovieService
++    @ObservationIgnored private let debounce: Duration
++    @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
++    @ObservationIgnored private var searchTask: Task<Void, Never>?
++
++    init(
++        service: any MovieService,
++        debounce: Duration = .milliseconds(300),
++        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
++    ) {
++        self.service = service
++        self.debounce = debounce
++        self.sleep = sleep
++    }
++
++    /// Returns once the currently scheduled search, if any, has finished.
++    func waitForSearch() async {
++        await searchTask?.value
++    }
++
++    private func scheduleSearch() {
++        searchTask?.cancel()
++        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
++        guard trimmed.count >= Self.minimumQueryLength else {
++            searchTask = nil
++            state = .idle
++            return
++        }
++        let debounce = debounce
++        let sleep = sleep
++        searchTask = Task { [weak self] in
++            do {
++                try await sleep(debounce)
++                try Task.checkCancellation()
++            } catch {
++                return
++            }
++            await self?.performSearch(trimmed)
++        }
++    }
++
++    private func performSearch(_ text: String) async {
++        state = .loading
++        do {
++            let response = try await service.search(query: text, page: 1)
++            guard !Task.isCancelled else { return }
++            state = response.results.isEmpty ? .empty : .loaded(response.results)
++        } catch is CancellationError {
++            return
++        } catch {
++            guard !Task.isCancelled else { return }
++            state = .failed(MovieListViewModel.message(for: error))
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/SearchView.swift b/Sources/TMDBApp/Views/SearchView.swift
+new file mode 100644
+index 0000000..12efd7a
+--- /dev/null
++++ b/Sources/TMDBApp/Views/SearchView.swift
+@@ -0,0 +1,43 @@
++import SwiftUI
++
++struct SearchView: View {
++    @State private var viewModel: SearchViewModel
++
++    init(viewModel: SearchViewModel) {
++        _viewModel = State(initialValue: viewModel)
++    }
++
++    var body: some View {
++        content
++            .navigationTitle("Search")
++            .searchable(text: $viewModel.query, prompt: "Search movies")
++            #if os(iOS)
++            .textInputAutocapitalization(.never)
++            .autocorrectionDisabled()
++            #endif
++    }
++
++    @ViewBuilder
++    private var content: some View {
++        switch viewModel.state {
++        case .idle:
++            message("Type at least 2 characters to search.")
++        case .loading:
++            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
++        case .empty:
++            message("No movies found.")
++        case .failed(let text):
++            message(text)
++        case .loaded(let movies):
++            List(movies) { MovieRowView(movie: $0) }
++        }
++    }
++
++    private func message(_ text: String) -> some View {
++        Text(text)
++            .multilineTextAlignment(.center)
++            .foregroundStyle(.secondary)
++            .padding()
++            .frame(maxWidth: .infinity, maxHeight: .infinity)
++    }
++}
+diff --git a/Tests/TMDBAppTests/SearchViewModelTests.swift b/Tests/TMDBAppTests/SearchViewModelTests.swift
+new file mode 100644
+index 0000000..aab41af
+--- /dev/null
++++ b/Tests/TMDBAppTests/SearchViewModelTests.swift
+@@ -0,0 +1,89 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@MainActor
++@Suite("SearchViewModel")
++struct SearchViewModelTests {
++    /// Sleep double: records requested durations, never waits.
++    final class SleepRecorder: @unchecked Sendable {
++        private let lock = NSLock()
++        private var _durations: [Duration] = []
++        var durations: [Duration] { lock.withLock { _durations } }
++        func sleep(_ d: Duration) async throws {
++            lock.withLock { _durations.append(d) }
++            await Task.yield()
++        }
++    }
++
++    private func makeVM(_ service: MockMovieService, recorder: SleepRecorder = SleepRecorder()) -> SearchViewModel {
++        SearchViewModel(service: service, debounce: .milliseconds(300), sleep: { try await recorder.sleep($0) })
++    }
++
++    @Test func shortQueryDoesNotCallService() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        vm.query = "a"
++        await vm.waitForSearch()
++        vm.query = "  b "
++        await vm.waitForSearch()
++        #expect(vm.state == .idle)
++        #expect(await service.calls.isEmpty)
++    }
++
++    @Test func shortQueryClearsPreviousResults() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        #expect(vm.state != .idle)
++        vm.query = "i"
++        #expect(vm.state == .idle)
++    }
++
++    @Test func rapidTypingTriggersOneSearch() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        for text in ["in", "inc", "ince", "incep", "inception"] { vm.query = text }
++        await vm.waitForSearch()
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++    }
++
++    @Test func supersededSearchDoesNotCallService() async {
++        let service = MockMovieService()
++        let recorder = SleepRecorder()
++        let vm = makeVM(service, recorder: recorder)
++        vm.query = "inc"
++        await Task.yield()
++        vm.query = "inception"
++        await vm.waitForSearch()
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++        #expect(recorder.durations.first == .milliseconds(300))
++    }
++
++    @Test func searchInceptionLoads() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        guard case .loaded(let movies) = vm.state else { Issue.record("expected loaded"); return }
++        #expect(movies.first?.id == 27205)
++        #expect(movies.first?.title == "Inception")
++    }
++
++    @Test func searchEmptyGivesEmptyState() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        vm.query = "empty"
++        await vm.waitForSearch()
++        #expect(vm.state == .empty)
++    }
++
++    @Test func errorState() async {
++        let service = MockMovieService(error: APIError.httpStatus(code: 401, message: "bad key"))
++        let vm = makeVM(service)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        #expect(vm.state == .failed("Invalid API key."))
++    }
++}

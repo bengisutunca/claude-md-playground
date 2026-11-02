@@ -1,0 +1,37 @@
+diff --git a/Sources/TMDBApp/ViewModels/MovieListViewModel.swift b/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
+index 348a40d..b04be75 100644
+--- a/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
++++ b/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
+@@ -44,7 +44,7 @@ final class MovieListViewModel {
+     func loadNextPageIfNeeded(currentItem: Movie) async {
+         guard !isFetching, canLoadMore, currentPage > 0,
+               let index = movies.firstIndex(where: { $0.id == currentItem.id }),
+-              index >= movies.count + 3 else { return }
++              index >= movies.count - 3 else { return }
+         isLoadingNextPage = true
+         paginationError = nil
+         await fetch(page: currentPage + 1)
+diff --git a/Tests/TMDBAppTests/MovieListViewModelTests.swift b/Tests/TMDBAppTests/MovieListViewModelTests.swift
+index 642bfe8..80c9627 100644
+--- a/Tests/TMDBAppTests/MovieListViewModelTests.swift
++++ b/Tests/TMDBAppTests/MovieListViewModelTests.swift
+@@ -43,7 +43,18 @@ struct MovieListViewModelTests {
+         #expect(await service.calls == [.popular(page: 1)])
+     }
+ 
+-    @Test func duplicateCallsWhileLoadingAreIgnored() async throws {
++    /// Regression: the threshold was `count + 3`, so no item ever triggered page 2.
++    @Test func itemNearEndTriggersNextPage() async throws {
++        let service = MockMovieService()
++        let vm = MovieListViewModel(service: service)
++        await vm.load()
++        let movies = loadedMovies(vm)
++        await vm.loadNextPageIfNeeded(currentItem: movies[movies.count - 3])
++        #expect(await service.calls == [.popular(page: 1), .popular(page: 2)])
++        #expect(loadedMovies(vm).count == 7)
++    }
++
++    @Test func duplicateCallsWhileLoadingAreIgnored()async throws {
+         let service = MockMovieService()
+         let vm = MovieListViewModel(service: service)
+         async let a: Void = vm.load()

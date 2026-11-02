@@ -14,6 +14,16 @@ Everything else is the same: the starting code, the eight task prompts, the mode
 permission settings in `.claude/settings.json`. Every step is a fresh headless Claude Code
 session, and the harness records the cost and token usage Claude Code reports for it.
 
+## Experiments
+
+| | What it measures | Harness | Results |
+|---|---|---|---|
+| **1. Chained** | Each arm builds the app step by step on its own branch (`baseline`, `caveman`). Realistic, but one run gives 8 noisy pairs and the arms drift apart after a few steps. | `bench/run.sh` | `results/run-1/` |
+| **2. Checkpoint** | Every task starts from the same reference commit in both arms, 3 trials each, scored by hidden acceptance tests. Adds seeded bug fixes and explain/review tasks. | `bench/exp2/` ([details](bench/exp2/README.md)) | `results/exp2/` |
+
+Experiment 1 found no detectable difference: caveman cost +2.7% in total, with a 95% confidence
+interval of roughly −10% to +25%. Experiment 2 is designed to narrow that interval.
+
 ## Layout
 
 ```

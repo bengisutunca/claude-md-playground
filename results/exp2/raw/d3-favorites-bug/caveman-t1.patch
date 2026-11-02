@@ -1,0 +1,31 @@
+diff --git a/Sources/TMDBApp/Services/FavoritesStore.swift b/Sources/TMDBApp/Services/FavoritesStore.swift
+index 3d18991..6845c4e 100644
+--- a/Sources/TMDBApp/Services/FavoritesStore.swift
++++ b/Sources/TMDBApp/Services/FavoritesStore.swift
+@@ -40,6 +40,6 @@ struct UserDefaultsFavoritesStore: FavoritesStore {
+ 
+     private static func deduplicated(_ movies: [Movie]) -> [Movie] {
+         var seen = Set<Int>()
+-        return movies.filter { !seen.insert($0.id).inserted }
++        return movies.filter { seen.insert($0.id).inserted }
+     }
+ }
+diff --git a/Tests/TMDBAppTests/FavoritesTests.swift b/Tests/TMDBAppTests/FavoritesTests.swift
+index 24574fe..e70a9d1 100644
+--- a/Tests/TMDBAppTests/FavoritesTests.swift
++++ b/Tests/TMDBAppTests/FavoritesTests.swift
+@@ -52,6 +52,14 @@ struct FavoritesTests {
+         #expect(second.favorites[0].releaseDate == all[0].releaseDate)
+     }
+ 
++    @Test func uniqueMoviesSurviveSaveAndLoad() throws {
++        let suite = TestSuite(); defer { suite.cleanUp() }
++        let all = try movies()
++        let store = suite.makeStore()
++        store.save(Array(all.prefix(3)))
++        #expect(suite.makeStore().load() == Array(all.prefix(3)))
++    }
++
+     @Test func insertionOrderKept() throws {
+         let suite = TestSuite(); defer { suite.cleanUp() }
+         let all = try movies()

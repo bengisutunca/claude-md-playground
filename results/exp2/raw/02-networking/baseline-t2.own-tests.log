@@ -1,0 +1,51 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+Test Suite 'All tests' started at 2026-11-02 13:18:08.196.
+Test Suite 'All tests' passed at 2026-11-02 13:18:08.197.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Model decoding" started.
+◇ Suite "Smoke" started.
+◇ Suite "Networking" started.
+◇ Test popularPage2EmptyReleaseDate() started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test popularPage1() started.
+◇ Test movieDetail() started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test successDecodesPopular() started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test baseURLsAreValid() started.
+◇ Test movieCredits() started.
+✔ Test baseURLsAreValid() passed after 0.001 seconds.
+✔ Test ratingTextUsesOneDecimal() passed after 0.001 seconds.
+✔ Test movieCredits() passed after 0.002 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.002 seconds.
+✔ Test movieDetail() passed after 0.002 seconds.
+✔ Test popularPage2EmptyReleaseDate() passed after 0.002 seconds.
+✔ Suite "Smoke" passed after 0.002 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.002 seconds.
+✔ Test popularPage1() passed after 0.002 seconds.
+✔ Suite "Model decoding" passed after 0.002 seconds.
+✔ Test successDecodesPopular() passed after 0.003 seconds.
+◇ Test successDecodesDetailAndCredits() started.
+✔ Test successDecodesDetailAndCredits() passed after 0.001 seconds.
+◇ Test unauthorizedMapsToHTTPStatus() started.
+✔ Test unauthorizedMapsToHTTPStatus() passed after 0.001 seconds.
+◇ Test decodingFailure() started.
+✔ Test decodingFailure() passed after 0.001 seconds.
+◇ Test transportFailure() started.
+✔ Test transportFailure() passed after 0.001 seconds.
+◇ Test queryItems() started.
+✔ Test queryItems() passed after 0.001 seconds.
+◇ Test configurationLoading() started.
+✔ Test configurationLoading() passed after 0.001 seconds.
+✔ Suite "Networking" passed after 0.005 seconds.
+✔ Test run with 15 tests in 3 suites passed after 0.005 seconds.

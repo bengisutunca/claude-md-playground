@@ -1,0 +1,14 @@
+✅ 01-models on ref/01                    expect pass → 8/8 pass
+✅ 02-networking on ref/02                expect pass → 10/10 pass
+✅ 03-service on ref/03                   expect pass → 7/7 pass
+✅ 04-movie-list on ref/04                expect pass → 6/6 pass
+✅ 05-search on ref/05                    expect pass → 6/6 pass
+✅ 06-detail on ref/06                    expect pass → 5/5 pass
+✅ 07-favorites on ref/07                 expect pass → 6/6 pass
+✅ 08-app-shell on ref/08                 expect pass → 5/5 pass
+✅ Acceptance04 on ref/08                 expect pass → 6/6 pass
+✅ Acceptance06 on ref/08                 expect pass → 5/5 pass
+✅ Acceptance07 on ref/08                 expect pass → 6/6 pass
+✅ d1-pagination-bug bug on ref/08        expect fail → 3/6 fail
+✅ d2-runtime-bug bug on ref/08           expect fail → 3/5 fail
+✅ d3-favorites-bug bug on ref/08         expect fail → 1/6 fail

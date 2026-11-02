@@ -1,0 +1,99 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+Test Suite 'All tests' started at 2026-11-02 14:02:51.366.
+Test Suite 'All tests' passed at 2026-11-02 14:02:51.367.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "TMDBMovieService" started.
+◇ Suite "MockMovieService" started.
+◇ Suite "Model decoding" started.
+◇ Suite MovieListViewModelTests started.
+◇ Suite "Networking" started.
+◇ Suite "Smoke" started.
+◇ Test creditsRequestsEndpointAndDecodes() started.
+◇ Suite "ImageURLBuilder" started.
+◇ Test searchRequestsEndpointAndDecodes() started.
+◇ Test returnsFixturesAndRecordsCalls() started.
+◇ Test searchEmptyResults() started.
+◇ Test propagatesClientError() started.
+◇ Test detailRequestsEndpointAndDecodes() started.
+◇ Test throwsConfiguredError() started.
+◇ Test popularRequestsEndpointAndDecodes() started.
+◇ Test movieCredits() started.
+◇ Test firstLoad() started.
+◇ Test refreshResetsPages() started.
+◇ Test paginationAcrossPagesAndEnd() started.
+◇ Test errorState() started.
+◇ Test duplicateCallsWhileLoadingAreIgnored() started.
+◇ Test popularPage2EmptyReleaseDate() started.
+◇ Test pathWithoutLeadingSlash() started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test movieDetail() started.
+◇ Test popularPage1() started.
+◇ Test customBaseURL() started.
+◇ Test emptyPathReturnsNil() started.
+◇ Test nilPathReturnsNil() started.
+◇ Test buildsURLForEachSize() started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test successDecodes() started.
+✔ Test propagatesClientError() passed after 0.001 seconds.
+◇ Test baseURLsAreValid() started.
+◇ Test fixturesAreValidJSON() started.
+✔ Test throwsConfiguredError() passed after 0.002 seconds.
+✔ Test emptyPathReturnsNil() passed after 0.002 seconds.
+✔ Test pathWithoutLeadingSlash() passed after 0.003 seconds.
+✔ Test nilPathReturnsNil() passed after 0.002 seconds.
+✔ Test buildsURLForEachSize() passed after 0.002 seconds.
+✔ Test customBaseURL() passed after 0.003 seconds.
+✔ Test movieCredits() passed after 0.003 seconds.
+✔ Test creditsRequestsEndpointAndDecodes() passed after 0.003 seconds.
+✔ Test searchEmptyResults() passed after 0.003 seconds.
+✔ Test searchRequestsEndpointAndDecodes() passed after 0.003 seconds.
+✔ Test detailRequestsEndpointAndDecodes() passed after 0.003 seconds.
+✔ Test ratingTextUsesOneDecimal() passed after 0.002 seconds.
+✔ Test popularRequestsEndpointAndDecodes() passed after 0.003 seconds.
+✔ Test movieDetail() passed after 0.003 seconds.
+✔ Test popularPage1() passed after 0.003 seconds.
+✔ Test popularPage2EmptyReleaseDate() passed after 0.003 seconds.
+✔ Test baseURLsAreValid() passed after 0.002 seconds.
+✔ Test returnsFixturesAndRecordsCalls() passed after 0.003 seconds.
+✔ Suite "ImageURLBuilder" passed after 0.003 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.003 seconds.
+✔ Test firstLoad() passed after 0.003 seconds.
+✔ Suite "MockMovieService" passed after 0.003 seconds.
+✔ Suite "Model decoding" passed after 0.003 seconds.
+✔ Suite "TMDBMovieService" passed after 0.003 seconds.
+✔ Test paginationAcrossPagesAndEnd() passed after 0.003 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.002 seconds.
+✔ Suite "Smoke" passed after 0.003 seconds.
+✔ Test duplicateCallsWhileLoadingAreIgnored() passed after 0.003 seconds.
+✔ Test errorState() passed after 0.003 seconds.
+✔ Test refreshResetsPages() passed after 0.003 seconds.
+✔ Suite MovieListViewModelTests passed after 0.003 seconds.
+✔ Test successDecodes() passed after 0.004 seconds.
+◇ Test unauthorizedMapsToHTTPStatus() started.
+✔ Test unauthorizedMapsToHTTPStatus() passed after 0.001 seconds.
+◇ Test decodingFailure() started.
+✔ Test decodingFailure() passed after 0.001 seconds.
+◇ Test transportError() started.
+✔ Test transportError() passed after 0.001 seconds.
+◇ Test apiKeyResolution() started.
+✔ Test apiKeyResolution() passed after 0.001 seconds.
+◇ Test popularQuery() started.
+✔ Test popularQuery() passed after 0.001 seconds.
+◇ Test searchQuery() started.
+✔ Test searchQuery() passed after 0.001 seconds.
+◇ Test detailQuery() started.
+✔ Test detailQuery() passed after 0.001 seconds.
+◇ Test creditsQuery() started.
+✔ Test creditsQuery() passed after 0.001 seconds.
+✔ Suite "Networking" passed after 0.006 seconds.
+✔ Test run with 35 tests in 7 suites passed after 0.006 seconds.

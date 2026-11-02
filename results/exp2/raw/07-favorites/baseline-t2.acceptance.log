@@ -1,0 +1,33 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Emitting module TMDBAppTests
+[4/6] Compiling TMDBAppTests Acceptance07.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking TMDBAppPackageTests
+Build complete! (0.87s)
+Test Suite 'Selected tests' started at 2026-11-02 13:30:14.242.
+Test Suite 'TMDBAppPackageTests.xctest' started at 2026-11-02 13:30:14.242.
+Test Suite 'TMDBAppPackageTests.xctest' passed at 2026-11-02 13:30:14.242.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-02 13:30:14.242.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Acceptance 07: favorites" started.
+◇ Test toggleOnAndOff() started.
+✔ Test toggleOnAndOff() passed after 0.003 seconds.
+◇ Test persistsAcrossInstances() started.
+✔ Test persistsAcrossInstances() passed after 0.001 seconds.
+◇ Test keepsInsertionOrder() started.
+✔ Test keepsInsertionOrder() passed after 0.001 seconds.
+◇ Test removeAtOffsetsPersists() started.
+✔ Test removeAtOffsetsPersists() passed after 0.001 seconds.
+◇ Test storeRoundTrip() started.
+✔ Test storeRoundTrip() passed after 0.001 seconds.
+◇ Test separateKeysAreIndependent() started.
+✔ Test separateKeysAreIndependent() passed after 0.001 seconds.
+✔ Suite "Acceptance 07: favorites" passed after 0.008 seconds.
+✔ Test run with 6 tests in 1 suite passed after 0.008 seconds.
