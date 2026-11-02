@@ -2,75 +2,92 @@
 
 Does a `CLAUDE.md` change what Claude Code costs to build an app?
 
-This repo builds the same iOS app (a TMDB movie browser, SwiftUI + MVVM) twice, with
-**identical prompts**, on two branches:
+This repo builds the same iOS app (a TMDB movie browser, SwiftUI + MVVM) with Claude Code,
+with **identical prompts**, once without a `CLAUDE.md` and once with the rules of the
+[caveman](https://github.com/JuliusBrussee/caveman) skill (v4.0.1), and compares cost,
+tokens and quality.
 
-| Branch     | Difference                                                                                     |
-|------------|------------------------------------------------------------------------------------------------|
-| `baseline` | No `CLAUDE.md`                                                                                 |
-| `caveman`  | `CLAUDE.md` = the rules of the [caveman](https://github.com/JuliusBrussee/caveman) skill (v4.0.1) |
+## Result
 
-Everything else is the same: the starting code, the eight task prompts, the model, the
-permission settings in `.claude/settings.json`. Every step is a fresh headless Claude Code
-session, and the harness records the cost and token usage Claude Code reports for it.
+**Caveman made Claude's messages shorter, but not the work cheaper.**
 
-## Experiments
+| Caveman vs no CLAUDE.md (84 sessions, 95% confidence interval) | |
+|---|---|
+| Length of Claude's messages | **−22%** [−26, −18] |
+| Total cost | **+3.8%** [−1.0, +8.9] |
+| Output tokens | −1.5% [−7.8, +5.2] |
+| Hidden acceptance tests passed | 100% in both |
 
-| | What it measures | Harness | Results |
-|---|---|---|---|
-| **1. Chained** | Each arm builds the app step by step on its own branch (`baseline`, `caveman`). Realistic, but one run gives 8 noisy pairs and the arms drift apart after a few steps. | `bench/run.sh` | `results/run-1/` |
-| **2. Checkpoint** | Every task starts from the same reference commit in both arms, 3 trials each, scored by hidden acceptance tests. Adds seeded bug fixes and explain/review tasks. | `bench/exp2/` ([details](bench/exp2/README.md)) | `results/exp2/` |
+In a coding session most output is code, which caveman's rules leave alone, and most of the
+cost is the agent reading files and context. The rules also add about 1.2k tokens to every
+session. Full write-up: **[results/REPORT.md](results/REPORT.md)**.
 
-Experiment 1 found no detectable difference: caveman cost +2.7% in total, with a 95% confidence
-interval of roughly −10% to +25%. Experiment 2 is designed to narrow that interval.
+## Where the code is
+
+`main` holds the starting skeleton, the benchmark tooling and the results. The app itself was
+written by Claude Code on two branches, one commit per step (`01-models` … `08-app-shell`):
+
+| Branch | CLAUDE.md | |
+|---|---|---|
+| [`baseline`](../../tree/baseline) | none | [commits](../../commits/baseline) |
+| [`caveman`](../../tree/caveman) | [caveman rules](bench/arms/caveman/CLAUDE.md) | [commits](../../commits/caveman) |
+
+Everything else is the same in both: starting code, prompts, model (Sonnet), tool permissions.
+Each step is a fresh headless Claude Code session.
+
+## Two experiments
+
+| | Experiment 1: chained | Experiment 2: checkpoint |
+|---|---|---|
+| Design | each branch builds the app step by step on top of its own previous step | every task starts from the same reference commit in both arms |
+| Tasks | 8 build steps | 8 build steps + 3 seeded bug fixes + 3 explain/review questions |
+| Repetitions | 1 | 3 per task and arm |
+| Quality check | the agent's own tests | 53 hidden acceptance tests the agent never sees |
+| Cost difference | +2.7% (interval about −10% to +25%) | +3.8% [−1.0, +8.9] |
+| Results | [results/RESULTS.md](results/RESULTS.md) | [results/exp2/RESULTS.md](results/exp2/RESULTS.md) |
+
+Experiment 1 is realistic but too noisy to conclude anything: after a few steps the two
+branches work on different code. Experiment 2 removes that drift and repeats every task, so
+its interval is narrow enough to rule out savings larger than about 1%.
 
 ## Layout
 
 ```
-Package.swift                     iOS 17+ / macOS 14+, Swift Testing
-Sources/TMDBApp/
-  Models/  Networking/  Services/  ViewModels/  Views/     MVVM layers (filled by the benchmark)
-Tests/TMDBAppTests/
-  Fixtures/*.json                 TMDB-shaped responses, so tests never touch the network
-  FixtureLoader.swift  SmokeTests.swift
-.claude/settings.json             same tool permissions for both arms (installed by setup.sh from bench/claude-settings.json)
+Package.swift                         iOS 17+ / macOS 14+, Swift Testing
+Sources/TMDBApp/                      MVVM skeleton (Models, Networking, Services, ViewModels, Views)
+Tests/TMDBAppTests/Fixtures/          TMDB-shaped JSON, so tests never touch the network
 bench/
-  tasks/01-models.md … 08-app-shell.md   the prompts, given word for word to both arms
-  arms/caveman/CLAUDE.md                 the file added on the caveman branch
-  setup.sh   run.sh   summarize.py
-results/                          per-run raw JSON, test logs, steps.jsonl, RESULTS.md
+  arms/caveman/CLAUDE.md              the file under test
+  tasks/                              experiment 1 prompts (01–08)
+  setup.sh  run.sh  redo.sh  reset.sh  summarize.py
+  exp2/                               experiment 2: tasks, hidden acceptance tests, run.py, calibrate.py
+results/
+  REPORT.md                           findings, method, limits
+  run-1/  RESULTS.md                  experiment 1 data
+  exp2/                               experiment 2 data: per session JSON, answer, patch, test logs
 ```
 
-On the arm branches, `bench/` and `results/` are removed, so the agent under test only sees the app.
+## Running it yourself (macOS)
 
-## Running it (macOS)
-
-Requirements: Xcode 16+ (Swift 6 toolchain), Claude Code logged in, `python3`.
+Requirements: Xcode 16+, Claude Code (`claude`) logged in, `python3`.
 
 ```bash
-./bench/setup.sh          # commits main, creates branches baseline + caveman, worktrees in ../claude-md-playground-wt/
-./bench/run.sh            # runs steps 01–08 on both arms, commits each step, writes results/run-1/
+./bench/setup.sh                     # creates branches baseline + caveman and their worktrees
+./bench/run.sh                       # experiment 1: steps 01–08 on both branches
+
+python3 bench/exp2/calibrate.py      # experiment 2: check the hidden tests (no Claude calls)
+python3 bench/exp2/run.py            # 14 tasks × 2 arms × 3 trials, resumable
 ```
 
-Options: `MODEL=opus ./bench/run.sh` (default `sonnet`), `RUN=2 ./bench/run.sh` to repeat on fresh
-branches `baseline-r2` / `caveman-r2`, `ONLY=03` for a single step. An interrupted run resumes
-where it stopped. `python3 bench/summarize.py` rebuilds `results/RESULTS.md` at any time.
+Before running, rename `~/.claude/CLAUDE.md` if you have one and disable any caveman install;
+both would affect both arms. The scripts load only project settings and warn about both.
+Model: `MODEL=opus ./bench/run.sh` or `python3 bench/exp2/run.py --model opus` (default `sonnet`).
 
-Before running, make sure nothing outside the repo affects only one arm, or both:
-- rename `~/.claude/CLAUDE.md` if you have one,
-- disable any caveman install (CLI, plugin or global skill).
-The script warns about both and loads only project settings (`--setting-sources project,local`).
-
-## Reading the results
-
-- **Cost** is Claude Code's `total_cost_usd`. On a Pro/Max subscription it is an API-price estimate, not a bill; token counts are the harder numbers.
-- **Output tokens** are where caveman's rules act; input and cache tokens mostly come from code and tool output, which the rules do not shorten. The rules themselves add about 1.2k input tokens per request.
-- **Tests** must pass in both arms for a cost difference to mean anything. A cheaper arm that breaks the build is not cheaper.
-- One run is noisy. Repeat with `RUN=2`, `RUN=3` and compare the mean.
+Cost is Claude Code's `total_cost_usd`. On a Pro/Max subscription it is an API-price
+estimate, not a bill.
 
 ## The app
 
-TMDB API key: the app reads `TMDB_API_KEY` from the environment or from the app's Info.plist.
-It is never committed (`Secrets.xcconfig` and `.env` are git-ignored). The benchmark itself needs no key.
-
-Fixture data is shaped like TMDB responses; titles are real, the other values are approximate and for tests only.
+The app reads the TMDB API key from `TMDB_API_KEY` (environment or Info.plist); no key is
+committed. The benchmark needs no key. Fixture titles are real; the other values are
+approximate and for tests only.
