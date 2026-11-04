@@ -1,0 +1,6 @@
+I added the domain models, and `swift build` and `swift test` both pass (7 tests, including the 5 new decoding tests). Nothing is committed, and I didn't touch the fixtures.
+
+- **Models:** `Movie`, `MovieDetail`, `Genre`, `CastMember`, `CrewMember`, `Credits` and `PagedResponse<T>` are in `Sources/TMDBApp/Models/`. All are `Identifiable`, `Hashable` and `Sendable`, except `PagedResponse`, which has no `id` so it isn't `Identifiable`. `Movie` and `MovieDetail` both have `year` and `ratingText`.
+- **Decoder:** `JSONDecoder.tmdb` uses snake_case conversion and parses `yyyy-MM-dd` dates as UTC, so `year` doesn't shift with the machine's time zone. A helper in `JSONDecoder+TMDB.swift` turns `""`, `null` or a missing `release_date` into `nil` for both `Movie` and `MovieDetail`.
+- **Tests:** `Tests/TMDBAppTests/ModelDecodingTests.swift` decodes all four fixtures from your list. It covers the null poster and backdrop paths, the null cast profile path, and the empty release date on page 2 (Parasite).
+- **`MovieDetail` runtime and tagline:** `runtime` is a non-optional `Int` and `tagline` a non-optional `String`. If TMDB sends `null`, they decode as `0` and `""`. Say if you'd rather they be optional.

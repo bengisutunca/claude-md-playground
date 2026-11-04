@@ -1,0 +1,33 @@
+diff --git a/Sources/TMDBApp/Services/FavoritesStore.swift b/Sources/TMDBApp/Services/FavoritesStore.swift
+index 3d18991..6845c4e 100644
+--- a/Sources/TMDBApp/Services/FavoritesStore.swift
++++ b/Sources/TMDBApp/Services/FavoritesStore.swift
+@@ -40,6 +40,6 @@ struct UserDefaultsFavoritesStore: FavoritesStore {
+ 
+     private static func deduplicated(_ movies: [Movie]) -> [Movie] {
+         var seen = Set<Int>()
+-        return movies.filter { !seen.insert($0.id).inserted }
++        return movies.filter { seen.insert($0.id).inserted }
+     }
+ }
+diff --git a/Tests/TMDBAppTests/FavoritesTests.swift b/Tests/TMDBAppTests/FavoritesTests.swift
+index 24574fe..f42570b 100644
+--- a/Tests/TMDBAppTests/FavoritesTests.swift
++++ b/Tests/TMDBAppTests/FavoritesTests.swift
+@@ -73,6 +73,16 @@ struct FavoritesTests {
+         #expect(FavoritesViewModel(store: suite.makeStore()).favorites == [all[0], all[2]])
+     }
+ 
++    @Test func saveThenLoadKeepsUniqueMovies() throws {
++        let suite = TestSuite(); defer { suite.cleanUp() }
++        let all = try movies()
++        let store = suite.makeStore()
++        store.save(Array(all.prefix(3)))
++        #expect(store.load() == Array(all.prefix(3)))
++        // A fresh store on the same defaults (simulated relaunch) still sees them.
++        #expect(suite.makeStore().load().count == 3)
++    }
++
+     @Test func noDuplicates() throws {
+         let suite = TestSuite(); defer { suite.cleanUp() }
+         let movie = try movies()[0]

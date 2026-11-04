@@ -1,0 +1,9 @@
+→ started Caveman proxy on 127.0.0.1:8787 (compress)
+caveman · compress · Claude Code
+watching…
+→ subscription logins (Claude Pro/Max) compress locally too — live zone only; compressed turns are re-sent byte-identically so the provider cache stays warm
+→ subscription and OAuth logins are counted in tokens only (local o200k estimate) — a seat has no per-token price, so no dollar figure is claimed for them
+Ignoring 14 permissions.allow entries from .claude/settings.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["/Users/bengisutunca/Documents/GitHub/claude-md-playground"].hasTrustDialogAccepted: true in /Users/bengisutunca/.claude.json.
+nothing compressible in this session — the layer stayed byte-safe; `caveman status` shows today's totals
+→ Caveman proxy left running; inspect with `caveman stats`
+→ synced 6 local spans · 0 estimated tokens saved (inferred; counter basis unavailable) → https://caveman.so/costs

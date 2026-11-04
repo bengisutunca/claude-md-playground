@@ -1,0 +1,55 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+Test Suite 'All tests' started at 2026-11-04 09:32:58.360.
+Test Suite 'All tests' passed at 2026-11-04 09:32:58.360.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite NetworkingTests started.
+◇ Suite "Model decoding" started.
+◇ Suite "Smoke" started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test movieDetail() started.
+◇ Test popularPage1() started.
+◇ Test movieCredits() started.
+◇ Test popularPage2EmptyReleaseDate() started.
+◇ Test baseURLsAreValid() started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test popularRequest() started.
+✔ Test ratingTextUsesOneDecimal() passed after 0.001 seconds.
+✔ Test baseURLsAreValid() passed after 0.001 seconds.
+✔ Test popularRequest() passed after 0.001 seconds.
+◇ Test searchRequest() started.
+✔ Test searchRequest() passed after 0.001 seconds.
+◇ Test detailRequest() started.
+✔ Test detailRequest() passed after 0.001 seconds.
+◇ Test creditsRequest() started.
+✔ Test creditsRequest() passed after 0.001 seconds.
+◇ Test successDecoding() started.
+✔ Test movieCredits() passed after 0.002 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.002 seconds.
+✔ Suite "Smoke" passed after 0.002 seconds.
+✔ Test movieDetail() passed after 0.002 seconds.
+✔ Test popularPage1() passed after 0.002 seconds.
+✔ Test popularPage2EmptyReleaseDate() passed after 0.002 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.002 seconds.
+✔ Suite "Model decoding" passed after 0.002 seconds.
+✔ Test successDecoding() passed after 0.001 seconds.
+◇ Test unauthorizedError() started.
+✔ Test unauthorizedError() passed after 0.001 seconds.
+◇ Test decodingFailure() started.
+✔ Test decodingFailure() passed after 0.001 seconds.
+◇ Test transportError() started.
+✔ Test transportError() passed after 0.001 seconds.
+◇ Test configurationLoading() started.
+✔ Test configurationLoading() passed after 0.001 seconds.
+✔ Suite NetworkingTests passed after 0.004 seconds.
+✔ Test run with 17 tests in 3 suites passed after 0.004 seconds.

@@ -1,0 +1,9 @@
+The movie detail screen is in. `swift build` succeeds and `swift test` passes (48 tests in 9 suites). I haven't run the app, so the screens are compiled but not looked at. Nothing is committed, and the fixtures are untouched.
+
+- **View model:** `MovieDetailViewModel` and `MovieDetailContent` are in `ViewModels/MovieDetailViewModel.swift`, with the API names and signatures you specified. Detail and credits load concurrently with `async let`. If either request fails, the state is `.failed`, using the same error messages as the list screen.
+- **Content:** The content keeps the top 10 cast by `order`; cast with no `order` sort last. Directors are the crew with `job == "Director"`.
+- **View:** `Views/MovieDetailView.swift` shows the backdrop, poster, title, year, tagline, rating, runtime, genres, overview, director, and a horizontal cast list. The one iOS-only modifier is wrapped in `#if os(iOS)`.
+- **Navigation:** `MovieListView` and `SearchView` now each wrap their content in a `NavigationStack`, with rows as `NavigationLink(value:)` and a `navigationDestination` for `Movie`.
+- **Tests:** `MovieDetailViewModelTests.swift` covers the successful load, a failure of each request on its own, and runtime formatting for 0, under 60, and exact hours, plus 61 and 148. They use the mock service and fixtures, so nothing touches the network.
+
+Both list and search views now take a `service: any MovieService` argument, because they build the detail view model themselves. Nothing in the repo calls their initializers today (there is no app entry point), but any code you add that creates them has to pass a service. If you later put a `NavigationStack` around them in a host app, you'll get nested stacks.

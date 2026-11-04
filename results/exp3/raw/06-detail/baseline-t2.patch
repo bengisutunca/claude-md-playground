@@ -1,0 +1,397 @@
+diff --git a/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift b/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift
+new file mode 100644
+index 0000000..03f9d25
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift
+@@ -0,0 +1,73 @@
++import Foundation
++import Observation
++
++/// Everything the detail screen renders, assembled from the detail and credits responses.
++struct MovieDetailContent: Equatable, Sendable {
++    static let maxCastCount = 10
++
++    let detail: MovieDetail
++    let cast: [CastMember]
++    let directors: [CrewMember]
++
++    init(detail: MovieDetail, credits: Credits) {
++        self.detail = detail
++        self.cast = Array(
++            credits.cast
++                .sorted { ($0.order ?? .max) < ($1.order ?? .max) }
++                .prefix(Self.maxCastCount)
++        )
++        self.directors = credits.crew.filter { $0.job == "Director" }
++    }
++
++    /// "2h 28m"; nil when the runtime is unknown.
++    var runtimeText: String? {
++        detail.runtime.map(Self.formatRuntime(minutes:))
++    }
++
++    var genresText: String {
++        detail.genres.map(\.name).joined(separator: ", ")
++    }
++
++    var year: String? { detail.year }
++
++    var directorsText: String {
++        directors.map(\.name).joined(separator: ", ")
++    }
++
++    static func formatRuntime(minutes: Int) -> String {
++        let minutes = max(0, minutes)
++        let hours = minutes / 60
++        let remainder = minutes % 60
++        if hours == 0 { return "\(remainder)m" }
++        if remainder == 0 { return "\(hours)h" }
++        return "\(hours)h \(remainder)m"
++    }
++}
++
++@MainActor
++@Observable
++final class MovieDetailViewModel {
++    let movieID: Int
++    private(set) var state: ViewState<MovieDetailContent> = .idle
++
++    @ObservationIgnored private let service: any MovieService
++
++    init(movieID: Int, service: any MovieService) {
++        self.movieID = movieID
++        self.service = service
++    }
++
++    func load() async {
++        state = .loading
++        do {
++            async let detail = service.detail(id: movieID)
++            async let credits = service.credits(id: movieID)
++            let content = try await MovieDetailContent(detail: detail, credits: credits)
++            state = .loaded(content)
++        } catch is CancellationError {
++            return
++        } catch {
++            state = .failed(MovieListViewModel.message(for: error))
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/MovieDetailView.swift b/Sources/TMDBApp/Views/MovieDetailView.swift
+new file mode 100644
+index 0000000..5db4ce5
+--- /dev/null
++++ b/Sources/TMDBApp/Views/MovieDetailView.swift
+@@ -0,0 +1,131 @@
++import SwiftUI
++
++struct MovieDetailView: View {
++    @State private var viewModel: MovieDetailViewModel
++    var imageURLBuilder = ImageURLBuilder()
++
++    init(viewModel: MovieDetailViewModel) {
++        _viewModel = State(initialValue: viewModel)
++    }
++
++    var body: some View {
++        content
++            .navigationTitle("Details")
++            #if os(iOS)
++            .navigationBarTitleDisplayMode(.inline)
++            #endif
++            .task { await viewModel.load() }
++    }
++
++    @ViewBuilder
++    private var content: some View {
++        switch viewModel.state {
++        case .idle, .loading:
++            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
++        case .empty:
++            Text("No details available.").foregroundStyle(.secondary)
++        case .failed(let text):
++            VStack(spacing: 12) {
++                Text(text).multilineTextAlignment(.center).foregroundStyle(.secondary)
++                Button("Try Again") { Task { await viewModel.load() } }
++                    .buttonStyle(.borderedProminent)
++            }
++            .padding()
++            .frame(maxWidth: .infinity, maxHeight: .infinity)
++        case .loaded(let content):
++            ScrollView { details(content) }
++        }
++    }
++
++    private func details(_ content: MovieDetailContent) -> some View {
++        let detail = content.detail
++        return VStack(alignment: .leading, spacing: 16) {
++            image(detail.backdropPath, size: .w780)
++                .frame(height: 200)
++                .frame(maxWidth: .infinity)
++                .clipped()
++
++            HStack(alignment: .bottom, spacing: 12) {
++                image(detail.posterPath, size: .w342)
++                    .frame(width: 100, height: 150)
++                    .clipShape(RoundedRectangle(cornerRadius: 8))
++                VStack(alignment: .leading, spacing: 6) {
++                    Text(detail.title).font(.title2.bold())
++                    if let year = content.year {
++                        Text(year).foregroundStyle(.secondary)
++                    }
++                }
++            }
++            .padding(.horizontal)
++            .offset(y: -40)
++            .padding(.bottom, -40)
++
++            VStack(alignment: .leading, spacing: 16) {
++                if let tagline = detail.tagline, !tagline.isEmpty {
++                    Text(tagline).italic().foregroundStyle(.secondary)
++                }
++                HStack(spacing: 16) {
++                    Label(detail.ratingText, systemImage: "star.fill").foregroundStyle(.orange)
++                    if let runtime = content.runtimeText {
++                        Label(runtime, systemImage: "clock")
++                    }
++                }
++                .font(.subheadline)
++                if !content.genresText.isEmpty {
++                    Text(content.genresText).font(.subheadline).foregroundStyle(.secondary)
++                }
++                if !detail.overview.isEmpty {
++                    section("Overview") { Text(detail.overview) }
++                }
++                if !content.directors.isEmpty {
++                    section(content.directors.count > 1 ? "Directors" : "Director") {
++                        Text(content.directorsText)
++                    }
++                }
++                if !content.cast.isEmpty {
++                    section("Cast") { castList(content.cast) }
++                }
++            }
++            .padding(.horizontal)
++            .padding(.bottom)
++        }
++    }
++
++    private func castList(_ cast: [CastMember]) -> some View {
++        ScrollView(.horizontal, showsIndicators: false) {
++            HStack(alignment: .top, spacing: 12) {
++                ForEach(cast) { member in
++                    VStack(spacing: 4) {
++                        image(member.profilePath, size: .w185)
++                            .frame(width: 80, height: 120)
++                            .clipShape(RoundedRectangle(cornerRadius: 6))
++                        Text(member.name).font(.caption.bold()).lineLimit(2)
++                        if let character = member.character, !character.isEmpty {
++                            Text(character).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
++                        }
++                    }
++                    .frame(width: 80)
++                    .multilineTextAlignment(.center)
++                }
++            }
++        }
++    }
++
++    private func image(_ path: String?, size: ImageURLBuilder.Size) -> some View {
++        AsyncImage(url: imageURLBuilder.url(path: path, size: size)) { image in
++            image.resizable().scaledToFill()
++        } placeholder: {
++            ZStack {
++                Rectangle().fill(.quaternary)
++                Image(systemName: "film").foregroundStyle(.secondary)
++            }
++        }
++    }
++
++    private func section<Body: View>(_ title: String, @ViewBuilder body: () -> Body) -> some View {
++        VStack(alignment: .leading, spacing: 6) {
++            Text(title).font(.headline)
++            body()
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/MovieListView.swift b/Sources/TMDBApp/Views/MovieListView.swift
+index 5be4f17..8953051 100644
+--- a/Sources/TMDBApp/Views/MovieListView.swift
++++ b/Sources/TMDBApp/Views/MovieListView.swift
+@@ -3,14 +3,22 @@ import SwiftUI
+ struct MovieListView: View {
+     @State private var viewModel: MovieListViewModel
+ 
+-    init(viewModel: MovieListViewModel) {
++    private let service: any MovieService
++
++    init(viewModel: MovieListViewModel, service: any MovieService) {
+         _viewModel = State(initialValue: viewModel)
++        self.service = service
+     }
+ 
+     var body: some View {
+-        content
+-            .navigationTitle("Popular")
+-            .task { await viewModel.load() }
++        NavigationStack {
++            content
++                .navigationTitle("Popular")
++                .navigationDestination(for: Int.self) { id in
++                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: id, service: service))
++                }
++        }
++        .task { await viewModel.load() }
+     }
+ 
+     @ViewBuilder
+@@ -25,8 +33,10 @@ struct MovieListView: View {
+         case .loaded(let movies):
+             List {
+                 ForEach(movies) { movie in
+-                    MovieRowView(movie: movie)
+-                        .task { await viewModel.loadNextPageIfNeeded(currentItem: movie) }
++                    NavigationLink(value: movie.id) {
++                        MovieRowView(movie: movie)
++                    }
++                    .task { await viewModel.loadNextPageIfNeeded(currentItem: movie) }
+                 }
+                 footer
+             }
+diff --git a/Sources/TMDBApp/Views/SearchView.swift b/Sources/TMDBApp/Views/SearchView.swift
+index f18981a..69ccd3d 100644
+--- a/Sources/TMDBApp/Views/SearchView.swift
++++ b/Sources/TMDBApp/Views/SearchView.swift
+@@ -3,18 +3,26 @@ import SwiftUI
+ struct SearchView: View {
+     @State private var viewModel: SearchViewModel
+ 
+-    init(viewModel: SearchViewModel) {
++    private let service: any MovieService
++
++    init(viewModel: SearchViewModel, service: any MovieService) {
+         _viewModel = State(initialValue: viewModel)
++        self.service = service
+     }
+ 
+     var body: some View {
+-        content
+-            .navigationTitle("Search")
+-            .searchable(text: $viewModel.query, prompt: "Search movies")
+-            #if os(iOS)
+-            .textInputAutocapitalization(.never)
+-            .autocorrectionDisabled()
+-            #endif
++        NavigationStack {
++            content
++                .navigationTitle("Search")
++                .searchable(text: $viewModel.query, prompt: "Search movies")
++                #if os(iOS)
++                .textInputAutocapitalization(.never)
++                .autocorrectionDisabled()
++                #endif
++                .navigationDestination(for: Int.self) { id in
++                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: id, service: service))
++                }
++        }
+     }
+ 
+     @ViewBuilder
+@@ -29,7 +37,9 @@ struct SearchView: View {
+         case .failed(let text):
+             message(text)
+         case .loaded(let movies):
+-            List(movies) { MovieRowView(movie: $0) }
++            List(movies) { movie in
++                NavigationLink(value: movie.id) { MovieRowView(movie: movie) }
++            }
+         }
+     }
+ 
+diff --git a/Tests/TMDBAppTests/MovieDetailViewModelTests.swift b/Tests/TMDBAppTests/MovieDetailViewModelTests.swift
+new file mode 100644
+index 0000000..2bd0f28
+--- /dev/null
++++ b/Tests/TMDBAppTests/MovieDetailViewModelTests.swift
+@@ -0,0 +1,81 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++/// Serves fixtures but can fail either request independently.
++private struct PartialFailureService: MovieService {
++    var failDetail = false
++    var failCredits = false
++
++    func popular(page: Int) async throws -> PagedResponse<Movie> { throw APIError.invalidResponse }
++    func search(query: String, page: Int) async throws -> PagedResponse<Movie> { throw APIError.invalidResponse }
++
++    func detail(id: Int) async throws -> MovieDetail {
++        if failDetail { throw APIError.invalidResponse }
++        return try JSONDecoder.tmdb.decode(MovieDetail.self, from: Fixture.data("movie_detail_27205"))
++    }
++
++    func credits(id: Int) async throws -> Credits {
++        if failCredits { throw APIError.invalidResponse }
++        return try JSONDecoder.tmdb.decode(Credits.self, from: Fixture.data("movie_credits_27205"))
++    }
++}
++
++@MainActor
++@Suite("MovieDetailViewModel")
++struct MovieDetailViewModelTests {
++    @Test func successfulLoad() async throws {
++        let service = MockMovieService()
++        let vm = MovieDetailViewModel(movieID: 27205, service: service)
++        #expect(vm.state == .idle)
++        await vm.load()
++        guard case .loaded(let content) = vm.state else {
++            Issue.record("expected loaded, got \(vm.state)")
++            return
++        }
++        #expect(content.detail.id == 27205)
++        #expect(content.detail.title == "Inception")
++        #expect(!content.cast.isEmpty)
++        #expect(content.cast.count <= 10)
++        let orders = content.cast.compactMap(\.order)
++        #expect(orders == orders.sorted())
++        #expect(!content.directors.isEmpty)
++        #expect(content.directors.allSatisfy { $0.job == "Director" })
++        #expect(content.runtimeText == "2h 28m")
++        #expect(content.year == "2010")
++        let calls = await service.calls
++        #expect(calls.contains(.detail(id: 27205)))
++        #expect(calls.contains(.credits(id: 27205)))
++    }
++
++    @Test func castIsTopTenByOrder() throws {
++        let credits = try JSONDecoder.tmdb.decode(Credits.self, from: Fixture.data("movie_credits_27205"))
++        let detail = try JSONDecoder.tmdb.decode(MovieDetail.self, from: Fixture.data("movie_detail_27205"))
++        let content = MovieDetailContent(detail: detail, credits: credits)
++        let expected = credits.cast.sorted { ($0.order ?? .max) < ($1.order ?? .max) }.prefix(10).map(\.id)
++        #expect(content.cast.map(\.id) == Array(expected))
++    }
++
++    @Test func genresAreJoined() throws {
++        let detail = try JSONDecoder.tmdb.decode(MovieDetail.self, from: Fixture.data("movie_detail_27205"))
++        let content = MovieDetailContent(detail: detail, credits: Credits(id: 27205, cast: [], crew: []))
++        #expect(content.genresText == detail.genres.map(\.name).joined(separator: ", "))
++    }
++
++    @Test func detailFailureGivesFailed() async {
++        let vm = MovieDetailViewModel(movieID: 27205, service: PartialFailureService(failDetail: true))
++        await vm.load()
++        guard case .failed = vm.state else { Issue.record("expected failed, got \(vm.state)"); return }
++    }
++
++    @Test func creditsFailureGivesFailed() async {
++        let vm = MovieDetailViewModel(movieID: 27205, service: PartialFailureService(failCredits: true))
++        await vm.load()
++        guard case .failed = vm.state else { Issue.record("expected failed, got \(vm.state)"); return }
++    }
++
++    @Test(arguments: [(148, "2h 28m"), (120, "2h"), (60, "1h"), (61, "1h 1m"), (45, "45m"), (1, "1m"), (0, "0m")])
++    func runtimeFormatting(minutes: Int, expected: String) {
++        #expect(MovieDetailContent.formatRuntime(minutes: minutes) == expected)
++    }
++}

@@ -1,0 +1,9 @@
+Favorites are in. `swift build` succeeds, and `swift test` passes all 53 tests, including the four new ones. I haven't run the app, so the heart button and the Favorites screen haven't been seen on screen. Nothing is committed.
+
+- **Movie:** `Movie` is now `Codable`. It encodes with the same keys it decodes, and release dates are written as `yyyy-MM-dd`. That lets the store save full `Movie` values with a plain `JSONEncoder`.
+- **Store:** `FavoritesStore` and `UserDefaultsFavoritesStore` are in `Services/FavoritesStore.swift`, with the signatures you gave.
+- **View model:** `FavoritesViewModel` loads the store in `init` and saves after every change. A movie counts as a duplicate if its `id` matches one already in the list.
+- **Favorites screen:** `FavoritesView` shows the favorites with swipe to delete and an empty-state message. Rows aren't tappable, so you can't open a favorite's detail from this screen.
+- **Heart button:** `MovieDetailView` now takes an optional `movie:` parameter, and the list and search screens pass it. The heart toolbar button only appears when a `movie` and a `FavoritesViewModel` are both present, so existing callers still work.
+- **Environment:** the heart button and `FavoritesView` read `FavoritesViewModel` from the SwiftUI environment. Nothing in the package injects it yet, because there is no app entry point or tab bar. Whoever hosts these views needs to call `.environment(FavoritesViewModel(store: UserDefaultsFavoritesStore()))` once at the root and add `FavoritesView` where it belongs. `FavoritesView` will crash if that is missing.
+- **Tests:** `FavoritesTests.swift` covers toggle on/off, persistence across store instances, order, removal and no duplicates. Each test uses a unique `UserDefaults` suite and removes it afterwards. Movies come from the `popular_page1` fixture.

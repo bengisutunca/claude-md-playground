@@ -1,0 +1,70 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Emitting module TMDBAppTests
+[4/6] Compiling TMDBAppTests Acceptance03.swift
+/Users/bengisutunca/Documents/GitHub/claude-md-playground-wt/exp3-baseline/Tests/TMDBAppTests/Acceptance03.swift:27:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+25 | 
+26 |     func send<T: Decodable>(_ endpoint: Endpoint, as type: T.Type) async throws -> T {
+27 |         lock.lock(); sent.append(endpoint); lock.unlock()
+   |              `- warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+28 |         let name: String
+29 |         switch endpoint {
+
+Foundation.NSLock.lock:2:11: note: 'lock()' declared here
+1 | class NSLock {
+2 | open func lock()}
+  |           `- note: 'lock()' declared here
+3 | 
+
+/Users/bengisutunca/Documents/GitHub/claude-md-playground-wt/exp3-baseline/Tests/TMDBAppTests/Acceptance03.swift:27:50: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+25 | 
+26 |     func send<T: Decodable>(_ endpoint: Endpoint, as type: T.Type) async throws -> T {
+27 |         lock.lock(); sent.append(endpoint); lock.unlock()
+   |                                                  `- warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+28 |         let name: String
+29 |         switch endpoint {
+
+Foundation.NSLock.unlock:2:11: note: 'unlock()' declared here
+1 | class NSLock {
+2 | open func unlock()}
+  |           `- note: 'unlock()' declared here
+3 | 
+
+/Users/bengisutunca/Documents/GitHub/claude-md-playground-wt/exp3-baseline/Tests/TMDBAppTests/Acceptance03.swift:34:9: warning: default will never be executed
+32 |         case .movieDetail: name = "movie_detail_27205"
+33 |         case .credits: name = "movie_credits_27205"
+34 |         default: name = "popular_page1"
+   |         `- warning: default will never be executed
+35 |         }
+36 |         return try JSONDecoder.tmdb.decode(T.self, from: accData(name))
+[4/6] Write Objects.LinkFileList
+[5/6] Linking TMDBAppPackageTests
+Build complete! (0.65s)
+Test Suite 'Selected tests' started at 2026-11-04 09:34:16.800.
+Test Suite 'TMDBAppPackageTests.xctest' started at 2026-11-04 09:34:16.801.
+Test Suite 'TMDBAppPackageTests.xctest' passed at 2026-11-04 09:34:16.801.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 09:34:16.801.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Acceptance 03: service layer" started.
+◇ Test missingImagePathGivesNil() started.
+◇ Test detailAndCredits() started.
+◇ Test searchUsesSearchEndpoint() started.
+◇ Test popularUsesPopularEndpoint() started.
+◇ Test imageURLs() started.
+◇ Test serviceConformsToProtocol() started.
+◇ Test sizeRawValues() started.
+✔ Test sizeRawValues() passed after 0.001 seconds.
+✔ Test missingImagePathGivesNil() passed after 0.001 seconds.
+✔ Test imageURLs() passed after 0.001 seconds.
+✔ Test searchUsesSearchEndpoint() passed after 0.002 seconds.
+✔ Test serviceConformsToProtocol() passed after 0.002 seconds.
+✔ Test popularUsesPopularEndpoint() passed after 0.002 seconds.
+✔ Test detailAndCredits() passed after 0.002 seconds.
+✔ Suite "Acceptance 03: service layer" passed after 0.002 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.003 seconds.

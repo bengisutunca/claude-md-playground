@@ -1,0 +1,37 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Emitting module TMDBAppTests
+[4/6] Compiling TMDBAppTests Acceptance01.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking TMDBAppPackageTests
+Build complete! (0.96s)
+Test Suite 'Selected tests' started at 2026-11-04 09:30:48.148.
+Test Suite 'TMDBAppPackageTests.xctest' started at 2026-11-04 09:30:48.148.
+Test Suite 'TMDBAppPackageTests.xctest' passed at 2026-11-04 09:30:48.148.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-04 09:30:48.148.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Acceptance 01: models" started.
+◇ Test credits() started.
+◇ Test pageMetadata() started.
+◇ Test movieDetail() started.
+◇ Test moviesAreHashableAndIdentifiable() started.
+◇ Test emptyReleaseDateDecodesAsNil() started.
+◇ Test movieFields() started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test ratingTextHasOneDecimal() started.
+✔ Test movieDetail() passed after 0.002 seconds.
+✔ Test credits() passed after 0.002 seconds.
+✔ Test moviesAreHashableAndIdentifiable() passed after 0.002 seconds.
+✔ Test movieFields() passed after 0.002 seconds.
+✔ Test pageMetadata() passed after 0.002 seconds.
+✔ Test ratingTextHasOneDecimal() passed after 0.002 seconds.
+✔ Test emptyReleaseDateDecodesAsNil() passed after 0.002 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.002 seconds.
+✔ Suite "Acceptance 01: models" passed after 0.002 seconds.
+✔ Test run with 8 tests in 1 suite passed after 0.003 seconds.

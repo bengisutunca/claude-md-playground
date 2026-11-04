@@ -1,0 +1,81 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+Test Suite 'All tests' started at 2026-11-04 09:09:09.417.
+Test Suite 'All tests' passed at 2026-11-04 09:09:09.418.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "TMDBMovieService" started.
+◇ Suite "Model decoding" started.
+◇ Suite "Networking" started.
+◇ Suite "ImageURLBuilder" started.
+◇ Suite "Smoke" started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test creditsUsesEndpoint() started.
+◇ Test errorsPropagate() started.
+◇ Test detailUsesEndpoint() started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test popularPage2EmptyReleaseDate() started.
+◇ Test movieCredits() started.
+◇ Test movieDetail() started.
+◇ Test customBaseURL() started.
+◇ Test popularPage1() started.
+◇ Test searchUsesEndpointAndReturnsResults() started.
+◇ Test mockServiceRecordsCallsAndThrows() started.
+◇ Test popularUsesEndpointAndReturnsPage() started.
+◇ Test buildsURLForEachSize(size:expected:) started.
+◇ Test successDecodes() started.
+◇ Test nilOrEmptyPathGivesNil() started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test baseURLsAreValid() started.
+✔ Test errorsPropagate() passed after 0.001 seconds.
+✔ Test ratingTextUsesOneDecimal() passed after 0.002 seconds.
+◇ Test case passing 2 arguments size → .w185, expected → "https://image.tmdb.org/t/p/w185/inception.jpg" to buildsURLForEachSize(size:expected:) started.
+◇ Test case passing 2 arguments size → .w342, expected → "https://image.tmdb.org/t/p/w342/inception.jpg" to buildsURLForEachSize(size:expected:) started.
+◇ Test case passing 2 arguments size → .w780, expected → "https://image.tmdb.org/t/p/w780/inception.jpg" to buildsURLForEachSize(size:expected:) started.
+◇ Test case passing 2 arguments size → .original, expected → "https://image.tmdb.org/t/p/original/inception.jpg" to buildsURLForEachSize(size:expected:) started.
+✔ Test customBaseURL() passed after 0.002 seconds.
+✔ Test creditsUsesEndpoint() passed after 0.002 seconds.
+✔ Test movieCredits() passed after 0.002 seconds.
+✔ Test buildsURLForEachSize(size:expected:) with 4 test cases passed after 0.002 seconds.
+✔ Test nilOrEmptyPathGivesNil() passed after 0.002 seconds.
+✔ Test searchUsesEndpointAndReturnsResults() passed after 0.002 seconds.
+✔ Test popularUsesEndpointAndReturnsPage() passed after 0.002 seconds.
+✔ Test movieDetail() passed after 0.002 seconds.
+✔ Suite "ImageURLBuilder" passed after 0.002 seconds.
+✔ Test detailUsesEndpoint() passed after 0.002 seconds.
+✔ Test popularPage1() passed after 0.002 seconds.
+✔ Test baseURLsAreValid() passed after 0.002 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.002 seconds.
+✔ Test popularPage2EmptyReleaseDate() passed after 0.002 seconds.
+✔ Suite "Model decoding" passed after 0.003 seconds.
+✔ Test mockServiceRecordsCallsAndThrows() passed after 0.002 seconds.
+✔ Suite "TMDBMovieService" passed after 0.003 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.002 seconds.
+✔ Suite "Smoke" passed after 0.003 seconds.
+✔ Test successDecodes() passed after 0.004 seconds.
+◇ Test unauthorizedMapsToHTTPStatus() started.
+✔ Test unauthorizedMapsToHTTPStatus() passed after 0.001 seconds.
+◇ Test decodingFailure() started.
+✔ Test decodingFailure() passed after 0.001 seconds.
+◇ Test transportError() started.
+✔ Test transportError() passed after 0.001 seconds.
+◇ Test apiKeyResolution() started.
+✔ Test apiKeyResolution() passed after 0.001 seconds.
+◇ Test popularQuery() started.
+✔ Test popularQuery() passed after 0.001 seconds.
+◇ Test searchQuery() started.
+✔ Test searchQuery() passed after 0.001 seconds.
+◇ Test detailQuery() started.
+✔ Test detailQuery() passed after 0.001 seconds.
+◇ Test creditsQuery() started.
+✔ Test creditsQuery() passed after 0.001 seconds.
+✔ Suite "Networking" passed after 0.005 seconds.
+✔ Test run with 26 tests in 5 suites passed after 0.006 seconds.

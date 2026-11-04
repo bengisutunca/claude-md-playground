@@ -1,0 +1,35 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+Test Suite 'All tests' started at 2026-11-04 09:05:13.395.
+Test Suite 'All tests' passed at 2026-11-04 09:05:13.396.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Smoke" started.
+◇ Suite "Model decoding" started.
+◇ Test baseURLsAreValid() started.
+◇ Test nullImagePaths() started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test popularPage1() started.
+◇ Test credits() started.
+◇ Test emptyReleaseDateDecodesAsNil() started.
+◇ Test movieDetail() started.
+✔ Test baseURLsAreValid() passed after 0.001 seconds.
+✔ Test ratingTextUsesOneDecimal() passed after 0.001 seconds.
+✔ Test credits() passed after 0.002 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.002 seconds.
+✔ Suite "Smoke" passed after 0.002 seconds.
+✔ Test movieDetail() passed after 0.002 seconds.
+✔ Test emptyReleaseDateDecodesAsNil() passed after 0.002 seconds.
+✔ Test nullImagePaths() passed after 0.002 seconds.
+✔ Test popularPage1() passed after 0.002 seconds.
+✔ Suite "Model decoding" passed after 0.002 seconds.
+✔ Test run with 8 tests in 2 suites passed after 0.002 seconds.

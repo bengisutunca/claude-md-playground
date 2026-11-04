@@ -1,0 +1,182 @@
+diff --git a/Sources/TMDBApp/ViewModels/SearchViewModel.swift b/Sources/TMDBApp/ViewModels/SearchViewModel.swift
+new file mode 100644
+index 0000000..0be4751
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/SearchViewModel.swift
+@@ -0,0 +1,60 @@
++import Foundation
++import Observation
++
++@MainActor
++@Observable
++final class SearchViewModel {
++    static let minimumQueryLength = 2
++
++    private(set) var state: ViewState<[Movie]> = .idle
++
++    /// Setting this schedules a debounced search, cancelling any pending one.
++    var query: String = "" {
++        didSet { scheduleSearch() }
++    }
++
++    @ObservationIgnored private let service: any MovieService
++    @ObservationIgnored private let debounce: Duration
++    @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
++    @ObservationIgnored private var searchTask: Task<Void, Never>?
++
++    init(
++        service: any MovieService,
++        debounce: Duration = .milliseconds(300),
++        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
++    ) {
++        self.service = service
++        self.debounce = debounce
++        self.sleep = sleep
++    }
++
++    /// Returns once the currently scheduled search, if any, has finished.
++    func waitForSearch() async {
++        await searchTask?.value
++    }
++
++    private func scheduleSearch() {
++        searchTask?.cancel()
++        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
++        guard trimmed.count >= Self.minimumQueryLength else {
++            searchTask = nil
++            state = .idle
++            return
++        }
++        searchTask = Task { [service, debounce, sleep] in
++            do {
++                try await sleep(debounce)
++                guard !Task.isCancelled else { return }
++                state = .loading
++                let response = try await service.search(query: trimmed, page: 1)
++                guard !Task.isCancelled else { return }
++                state = response.results.isEmpty ? .empty : .loaded(response.results)
++            } catch is CancellationError {
++                return
++            } catch {
++                guard !Task.isCancelled else { return }
++                state = .failed(MovieListViewModel.message(for: error))
++            }
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/SearchView.swift b/Sources/TMDBApp/Views/SearchView.swift
+new file mode 100644
+index 0000000..69dd6d7
+--- /dev/null
++++ b/Sources/TMDBApp/Views/SearchView.swift
+@@ -0,0 +1,39 @@
++import SwiftUI
++
++struct SearchView: View {
++    @State private var viewModel: SearchViewModel
++
++    init(viewModel: SearchViewModel) {
++        _viewModel = State(initialValue: viewModel)
++    }
++
++    var body: some View {
++        content
++            .navigationTitle("Search")
++            .searchable(text: $viewModel.query)
++    }
++
++    @ViewBuilder
++    private var content: some View {
++        switch viewModel.state {
++        case .idle:
++            message("Search for a movie.")
++        case .loading:
++            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
++        case .empty:
++            message("No results found.")
++        case .failed(let text):
++            message(text)
++        case .loaded(let movies):
++            List(movies) { MovieRowView(movie: $0) }
++        }
++    }
++
++    private func message(_ text: String) -> some View {
++        Text(text)
++            .multilineTextAlignment(.center)
++            .foregroundStyle(.secondary)
++            .padding()
++            .frame(maxWidth: .infinity, maxHeight: .infinity)
++    }
++}
+diff --git a/Tests/TMDBAppTests/SearchViewModelTests.swift b/Tests/TMDBAppTests/SearchViewModelTests.swift
+new file mode 100644
+index 0000000..4dd017a
+--- /dev/null
++++ b/Tests/TMDBAppTests/SearchViewModelTests.swift
+@@ -0,0 +1,65 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@MainActor
++@Suite("SearchViewModel")
++struct SearchViewModelTests {
++    private func makeVM(_ service: MockMovieService) -> SearchViewModel {
++        SearchViewModel(service: service, sleep: { _ in })
++    }
++
++    @Test func shortQueryDoesNotCallService() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        vm.query = "a"
++        await vm.waitForSearch()
++        vm.query = "  b "
++        await vm.waitForSearch()
++        #expect(vm.state == .idle)
++        #expect(await service.calls.isEmpty)
++    }
++
++    @Test func shortQueryClearsResults() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        vm.query = "i"
++        await vm.waitForSearch()
++        #expect(vm.state == .idle)
++    }
++
++    @Test func rapidTypingTriggersOneSearch() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        for q in ["in", "inc", "ince", "incep"] { vm.query = q }
++        await vm.waitForSearch()
++        #expect(await service.calls == [.search(query: "incep", page: 1)])
++    }
++
++    @Test func searchInception() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        guard case .loaded(let movies) = vm.state else { Issue.record("expected loaded"); return }
++        #expect(movies.first?.title == "Inception")
++    }
++
++    @Test func emptyResultIsEmptyState() async {
++        let service = MockMovieService()
++        let vm = makeVM(service)
++        vm.query = "empty"
++        await vm.waitForSearch()
++        #expect(vm.state == .empty)
++    }
++
++    @Test func errorState() async {
++        let service = MockMovieService(error: APIError.httpStatus(code: 401, message: nil))
++        let vm = makeVM(service)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        #expect(vm.state == .failed("Invalid API key."))
++    }
++}

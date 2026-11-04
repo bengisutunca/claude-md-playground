@@ -1,0 +1,53 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+Test Suite 'All tests' started at 2026-11-04 09:08:17.095.
+Test Suite 'All tests' passed at 2026-11-04 09:08:17.095.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Model decoding" started.
+◇ Suite "Networking" started.
+◇ Suite "Smoke" started.
+◇ Test popularPage1() started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test popularPage2EmptyReleaseDate() started.
+◇ Test movieCredits() started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test baseURLsAreValid() started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test successDecodes() started.
+✔ Test baseURLsAreValid() passed after 0.001 seconds.
+✔ Test ratingTextUsesOneDecimal() passed after 0.001 seconds.
+◇ Test movieDetail() started.
+✔ Test movieCredits() passed after 0.002 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.002 seconds.
+✔ Suite "Smoke" passed after 0.002 seconds.
+✔ Test movieDetail() passed after 0.002 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.002 seconds.
+✔ Test popularPage2EmptyReleaseDate() passed after 0.002 seconds.
+✔ Test popularPage1() passed after 0.002 seconds.
+✔ Suite "Model decoding" passed after 0.002 seconds.
+✔ Test successDecodes() passed after 0.003 seconds.
+◇ Test unauthorizedMapsToHTTPStatus() started.
+✔ Test unauthorizedMapsToHTTPStatus() passed after 0.001 seconds.
+◇ Test wrongShapeThrowsDecoding() started.
+✔ Test wrongShapeThrowsDecoding() passed after 0.001 seconds.
+◇ Test transportErrorIsWrapped() started.
+✔ Test transportErrorIsWrapped() passed after 0.001 seconds.
+◇ Test queryItems(endpoint:path:extra:) started.
+◇ Test case passing 3 arguments endpoint → .popular(page: 2), path → "/3/movie/popular", extra → ["page": "2"] to queryItems(endpoint:path:extra:) started.
+◇ Test case passing 3 arguments endpoint → .search(query: "the matrix & co", page: 3), path → "/3/search/movie", extra → ["query": "the matrix & co", "page": "3"] to queryItems(endpoint:path:extra:) started.
+◇ Test case passing 3 arguments endpoint → .movieDetail(id: 27205), path → "/3/movie/27205", extra → [:] to queryItems(endpoint:path:extra:) started.
+◇ Test case passing 3 arguments endpoint → .credits(movieID: 27205), path → "/3/movie/27205/credits", extra → [:] to queryItems(endpoint:path:extra:) started.
+✔ Test queryItems(endpoint:path:extra:) with 4 test cases passed after 0.001 seconds.
+◇ Test configurationLoading() started.
+✔ Test configurationLoading() passed after 0.001 seconds.
+✔ Suite "Networking" passed after 0.005 seconds.
+✔ Test run with 14 tests in 3 suites passed after 0.005 seconds.

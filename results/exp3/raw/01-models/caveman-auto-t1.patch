@@ -1,0 +1,342 @@
+diff --git a/Sources/TMDBApp/Models/Credits.swift b/Sources/TMDBApp/Models/Credits.swift
+new file mode 100644
+index 0000000..a4e51c9
+--- /dev/null
++++ b/Sources/TMDBApp/Models/Credits.swift
+@@ -0,0 +1,27 @@
++import Foundation
++
++/// Cast and crew from `/movie/{id}/credits`; `id` is the movie ID.
++public struct Credits: Decodable, Identifiable, Hashable, Sendable {
++    public let id: Int
++    public let cast: [CastMember]
++    public let crew: [CrewMember]
++}
++
++public struct CastMember: Decodable, Identifiable, Hashable, Sendable {
++    /// TMDB person ID.
++    public let id: Int
++    public let name: String
++    public let character: String
++    /// Billing order (0 = top billed).
++    public let order: Int
++    public let profilePath: String?
++}
++
++public struct CrewMember: Decodable, Identifiable, Hashable, Sendable {
++    /// TMDB person ID. The same person can appear more than once with different jobs.
++    public let id: Int
++    public let name: String
++    public let job: String
++    public let department: String
++    public let profilePath: String?
++}
+diff --git a/Sources/TMDBApp/Models/Genre.swift b/Sources/TMDBApp/Models/Genre.swift
+new file mode 100644
+index 0000000..0c9dc2d
+--- /dev/null
++++ b/Sources/TMDBApp/Models/Genre.swift
+@@ -0,0 +1,6 @@
++import Foundation
++
++public struct Genre: Decodable, Identifiable, Hashable, Sendable {
++    public let id: Int
++    public let name: String
++}
+diff --git a/Sources/TMDBApp/Models/JSONDecoder+TMDB.swift b/Sources/TMDBApp/Models/JSONDecoder+TMDB.swift
+new file mode 100644
+index 0000000..60282c9
+--- /dev/null
++++ b/Sources/TMDBApp/Models/JSONDecoder+TMDB.swift
+@@ -0,0 +1,43 @@
++import Foundation
++
++extension JSONDecoder {
++    /// Decoder for every TMDB response: snake_case keys and `"yyyy-MM-dd"` dates.
++    ///
++    /// TMDB sends an empty string for unknown release dates; models decode those
++    /// fields with `KeyedDecodingContainer.decodeTMDBDate(forKey:)`, which maps `""` to `nil`.
++    public static var tmdb: JSONDecoder {
++        let decoder = JSONDecoder()
++        decoder.keyDecodingStrategy = .convertFromSnakeCase
++        decoder.dateDecodingStrategy = .custom { decoder in
++            let container = try decoder.singleValueContainer()
++            let string = try container.decode(String.self)
++            guard let date = try? Date(string, strategy: TMDBDate.parseStrategy) else {
++                throw DecodingError.dataCorruptedError(
++                    in: container, debugDescription: "Expected yyyy-MM-dd date, got \"\(string)\"")
++            }
++            return date
++        }
++        return decoder
++    }
++}
++
++/// TMDB calendar dates (`yyyy-MM-dd`), interpreted in UTC.
++enum TMDBDate {
++    static let parseStrategy = Date.ISO8601FormatStyle().year().month().day()
++
++    static func year(of date: Date) -> String {
++        var calendar = Calendar(identifier: .gregorian)
++        calendar.timeZone = TimeZone(identifier: "UTC")!
++        return String(calendar.component(.year, from: date))
++    }
++}
++
++extension KeyedDecodingContainer {
++    /// Decodes an optional TMDB date, treating a missing key, `null` or `""` as `nil`.
++    func decodeTMDBDate(forKey key: Key) throws -> Date? {
++        guard let string = try decodeIfPresent(String.self, forKey: key), !string.isEmpty else {
++            return nil
++        }
++        return try decode(Date.self, forKey: key)
++    }
++}
+diff --git a/Sources/TMDBApp/Models/Movie.swift b/Sources/TMDBApp/Models/Movie.swift
+new file mode 100644
+index 0000000..bd34dea
+--- /dev/null
++++ b/Sources/TMDBApp/Models/Movie.swift
+@@ -0,0 +1,46 @@
++import Foundation
++
++/// A movie as returned by TMDB list endpoints.
++public struct Movie: Decodable, Identifiable, Hashable, Sendable {
++    public let id: Int
++    public let title: String
++    public let overview: String
++    public let posterPath: String?
++    public let backdropPath: String?
++    public let releaseDate: Date?
++    public let voteAverage: Double
++    public let voteCount: Int
++    public let genreIDs: [Int]
++
++    /// Release year, e.g. `"2010"`; `nil` when the release date is unknown.
++    public var year: String? {
++        releaseDate.map(TMDBDate.year(of:))
++    }
++
++    /// Vote average with one decimal, e.g. `"8.4"`.
++    public var ratingText: String {
++        String(format: "%.1f", voteAverage)
++    }
++}
++
++extension Movie {
++    // Raw values are post-snake_case-conversion names (see `JSONDecoder.tmdb`).
++    enum CodingKeys: String, CodingKey {
++        case id, title, overview, posterPath, backdropPath, releaseDate, voteAverage, voteCount
++        case genreIDs = "genreIds"
++    }
++
++    // Declared in an extension to keep the memberwise initializer.
++    public init(from decoder: Decoder) throws {
++        let container = try decoder.container(keyedBy: CodingKeys.self)
++        id = try container.decode(Int.self, forKey: .id)
++        title = try container.decode(String.self, forKey: .title)
++        overview = try container.decode(String.self, forKey: .overview)
++        posterPath = try container.decodeIfPresent(String.self, forKey: .posterPath)
++        backdropPath = try container.decodeIfPresent(String.self, forKey: .backdropPath)
++        releaseDate = try container.decodeTMDBDate(forKey: .releaseDate)
++        voteAverage = try container.decode(Double.self, forKey: .voteAverage)
++        voteCount = try container.decode(Int.self, forKey: .voteCount)
++        genreIDs = try container.decode([Int].self, forKey: .genreIDs)
++    }
++}
+diff --git a/Sources/TMDBApp/Models/MovieDetail.swift b/Sources/TMDBApp/Models/MovieDetail.swift
+new file mode 100644
+index 0000000..a95440d
+--- /dev/null
++++ b/Sources/TMDBApp/Models/MovieDetail.swift
+@@ -0,0 +1,47 @@
++import Foundation
++
++/// Full movie details from `/movie/{id}`.
++public struct MovieDetail: Decodable, Identifiable, Hashable, Sendable {
++    public let id: Int
++    public let title: String
++    public let overview: String
++    public let posterPath: String?
++    public let backdropPath: String?
++    public let releaseDate: Date?
++    public let voteAverage: Double
++    public let voteCount: Int
++    /// Minutes; TMDB may send `null` for unreleased titles.
++    public let runtime: Int?
++    public let tagline: String?
++    public let genres: [Genre]
++    public let status: String
++
++    /// Release year, e.g. `"2010"`; `nil` when the release date is unknown.
++    public var year: String? {
++        releaseDate.map(TMDBDate.year(of:))
++    }
++}
++
++extension MovieDetail {
++    enum CodingKeys: String, CodingKey {
++        case id, title, overview, posterPath, backdropPath, releaseDate, voteAverage, voteCount
++        case runtime, tagline, genres, status
++    }
++
++    // Declared in an extension to keep the memberwise initializer.
++    public init(from decoder: Decoder) throws {
++        let container = try decoder.container(keyedBy: CodingKeys.self)
++        id = try container.decode(Int.self, forKey: .id)
++        title = try container.decode(String.self, forKey: .title)
++        overview = try container.decode(String.self, forKey: .overview)
++        posterPath = try container.decodeIfPresent(String.self, forKey: .posterPath)
++        backdropPath = try container.decodeIfPresent(String.self, forKey: .backdropPath)
++        releaseDate = try container.decodeTMDBDate(forKey: .releaseDate)
++        voteAverage = try container.decode(Double.self, forKey: .voteAverage)
++        voteCount = try container.decode(Int.self, forKey: .voteCount)
++        runtime = try container.decodeIfPresent(Int.self, forKey: .runtime)
++        tagline = try container.decodeIfPresent(String.self, forKey: .tagline)
++        genres = try container.decode([Genre].self, forKey: .genres)
++        status = try container.decode(String.self, forKey: .status)
++    }
++}
+diff --git a/Sources/TMDBApp/Models/PagedResponse.swift b/Sources/TMDBApp/Models/PagedResponse.swift
+new file mode 100644
+index 0000000..807966c
+--- /dev/null
++++ b/Sources/TMDBApp/Models/PagedResponse.swift
+@@ -0,0 +1,13 @@
++import Foundation
++
++/// A page of results from a TMDB list endpoint (popular, search, ...).
++public struct PagedResponse<T: Decodable>: Decodable {
++    public let page: Int
++    public let results: [T]
++    public let totalPages: Int
++    public let totalResults: Int
++}
++
++extension PagedResponse: Sendable where T: Sendable {}
++extension PagedResponse: Equatable where T: Equatable {}
++extension PagedResponse: Hashable where T: Hashable {}
+diff --git a/Tests/TMDBAppTests/ModelDecodingTests.swift b/Tests/TMDBAppTests/ModelDecodingTests.swift
+new file mode 100644
+index 0000000..addeddf
+--- /dev/null
++++ b/Tests/TMDBAppTests/ModelDecodingTests.swift
+@@ -0,0 +1,118 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@Suite("Model decoding")
++struct ModelDecodingTests {
++    private func decode<T: Decodable>(_ type: T.Type, from fixture: String) throws -> T {
++        try JSONDecoder.tmdb.decode(T.self, from: Fixture.data(fixture))
++    }
++
++    private func utcDate(_ year: Int, _ month: Int, _ day: Int) -> Date {
++        var calendar = Calendar(identifier: .gregorian)
++        calendar.timeZone = TimeZone(identifier: "UTC")!
++        return calendar.date(from: DateComponents(year: year, month: month, day: day))!
++    }
++
++    @Test func decodesPopularPage1() throws {
++        let response = try decode(PagedResponse<Movie>.self, from: "popular_page1")
++        #expect(response.page == 1)
++        #expect(response.totalPages == 2)
++        #expect(response.totalResults == 7)
++        #expect(response.results.count == 5)
++
++        let inception = try #require(response.results.first)
++        #expect(inception.id == 27205)
++        #expect(inception.title == "Inception")
++        #expect(inception.overview.hasPrefix("A thief"))
++        #expect(inception.posterPath == "/inception.jpg")
++        #expect(inception.backdropPath == "/inception_bg.jpg")
++        #expect(inception.releaseDate == utcDate(2010, 7, 15))
++        #expect(inception.year == "2010")
++        #expect(inception.voteAverage == 8.4)
++        #expect(inception.voteCount == 37000)
++        #expect(inception.genreIDs == [28, 878, 12])
++        #expect(inception.ratingText == "8.4")
++    }
++
++    @Test func nullImagePathsDecodeAsNil() throws {
++        let movies = try decode(PagedResponse<Movie>.self, from: "popular_page1").results
++        let shawshank = try #require(movies.first { $0.id == 278 })
++        #expect(shawshank.backdropPath == nil)
++        #expect(shawshank.posterPath == "/shawshank.jpg")
++
++        let fightClub = try #require(movies.first { $0.id == 550 })
++        #expect(fightClub.posterPath == nil)
++        #expect(fightClub.backdropPath == "/fight_club_bg.jpg")
++    }
++
++    @Test func decodesPopularPage2WithEmptyReleaseDate() throws {
++        let response = try decode(PagedResponse<Movie>.self, from: "popular_page2")
++        #expect(response.page == 2)
++        #expect(response.results.map(\.id) == [129, 496243])
++
++        let spiritedAway = response.results[0]
++        #expect(spiritedAway.year == "2001")
++
++        let parasite = response.results[1]
++        #expect(parasite.releaseDate == nil)
++        #expect(parasite.year == nil)
++        #expect(parasite.ratingText == "8.5")
++    }
++
++    @Test func malformedReleaseDateThrows() {
++        let json = Data("""
++        {"id":1,"title":"X","overview":"","poster_path":null,"backdrop_path":null,
++         "release_date":"15/07/2010","vote_average":1,"vote_count":1,"genre_ids":[]}
++        """.utf8)
++        #expect(throws: DecodingError.self) {
++            try JSONDecoder.tmdb.decode(Movie.self, from: json)
++        }
++    }
++
++    @Test(arguments: [(8.4, "8.4"), (8.0, "8.0"), (7.04, "7.0"),(7.96, "8.0"), (0, "0.0")])
++    func ratingTextUsesOneDecimal(average: Double, expected: String) {
++        let movie = Movie(id: 1, title: "", overview: "", posterPath: nil, backdropPath: nil,
++                          releaseDate: nil, voteAverage: average, voteCount: 0, genreIDs: [])
++        #expect(movie.ratingText == expected)
++    }
++
++    @Test func decodesMovieDetail() throws {
++        let detail = try decode(MovieDetail.self, from: "movie_detail_27205")
++        #expect(detail.id == 27205)
++        #expect(detail.title == "Inception")
++        #expect(detail.runtime == 148)
++        #expect(detail.tagline == "Your mind is the scene of the crime.")
++        #expect(detail.status == "Released")
++        #expect(detail.genres == [
++            Genre(id: 28, name: "Action"),
++            Genre(id: 878, name: "Science Fiction"),
++            Genre(id: 12, name: "Adventure"),
++        ])
++        #expect(detail.releaseDate == utcDate(2010, 7, 15))
++        #expect(detail.year == "2010")
++        #expect(detail.posterPath == "/inception.jpg")
++        #expect(detail.voteAverage == 8.4)
++    }
++
++    @Test func decodesCredits() throws {
++        let credits = try decode(Credits.self, from: "movie_credits_27205")
++        #expect(credits.id == 27205)
++        #expect(credits.cast.map(\.name) == ["Leonardo DiCaprio", "Joseph Gordon-Levitt", "Elliot Page", "Tom Hardy"])
++        #expect(credits.cast.map(\.order) == [0, 1, 2, 3])
++
++        let dicaprio = credits.cast[0]
++        #expect(dicaprio.id == 6193)
++        #expect(dicaprio.character == "Cobb")
++        #expect(dicaprio.profilePath == "/dicaprio.jpg")
++
++        let elliotPage = try #require(credits.cast.first { $0.id == 27578 })
++        #expect(elliotPage.profilePath == nil)
++
++        let nolan = try #require(credits.crew.first)
++        #expect(nolan.id == 525)
++        #expect(nolan.name == "Christopher Nolan")
++        #expect(nolan.job == "Director")
++        #expect(nolan.department == "Directing")
++    }
++}

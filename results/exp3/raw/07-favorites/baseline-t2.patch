@@ -1,0 +1,329 @@
+diff --git a/Sources/TMDBApp/Models/JSONDecoder+TMDB.swift b/Sources/TMDBApp/Models/JSONDecoder+TMDB.swift
+index 7508af9..ad11f95 100644
+--- a/Sources/TMDBApp/Models/JSONDecoder+TMDB.swift
++++ b/Sources/TMDBApp/Models/JSONDecoder+TMDB.swift
+@@ -24,6 +24,11 @@ enum TMDBDate {
+         return calendar.date(from: DateComponents(year: y, month: m, day: d))
+     }
+ 
++    static func string(from date: Date) -> String {
++        let c = calendar.dateComponents([.year, .month, .day], from: date)
++        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 1, c.day ?? 1)
++    }
++
+     static func year(of date: Date) -> String {
+         String(calendar.component(.year, from: date))
+     }
+diff --git a/Sources/TMDBApp/Models/Movie.swift b/Sources/TMDBApp/Models/Movie.swift
+index 098fd3f..004c42d 100644
+--- a/Sources/TMDBApp/Models/Movie.swift
++++ b/Sources/TMDBApp/Models/Movie.swift
+@@ -1,6 +1,6 @@
+ import Foundation
+ 
+-struct Movie: Identifiable, Hashable, Sendable, Decodable {
++struct Movie: Identifiable, Hashable, Sendable, Codable {
+     let id: Int
+     let title: String
+     let overview: String
+@@ -46,6 +46,21 @@ struct Movie: Identifiable, Hashable, Sendable, Decodable {
+ }
+ 
+ extension Movie {
++    /// Encodes with the same (camelCase) keys as `CodingKeys`, dates as "yyyy-MM-dd".
++    /// Decode the result with a plain `JSONDecoder` (no snake-case conversion).
++    func encode(to encoder: Encoder) throws {
++        var c = encoder.container(keyedBy: CodingKeys.self)
++        try c.encode(id, forKey: .id)
++        try c.encode(title, forKey: .title)
++        try c.encode(overview, forKey: .overview)
++        try c.encodeIfPresent(posterPath, forKey: .posterPath)
++        try c.encodeIfPresent(backdropPath, forKey: .backdropPath)
++        try c.encodeIfPresent(releaseDate.map(TMDBDate.string(from:)), forKey: .releaseDate)
++        try c.encode(voteAverage, forKey: .voteAverage)
++        try c.encode(voteCount, forKey: .voteCount)
++        try c.encode(genreIDs, forKey: .genreIDs)
++    }
++
+     var year: String? { releaseDate.map(TMDBDate.year(of:)) }
+ 
+     var ratingText: String { String(format: "%.1f", voteAverage) }
+diff --git a/Sources/TMDBApp/Services/FavoritesStore.swift b/Sources/TMDBApp/Services/FavoritesStore.swift
+new file mode 100644
+index 0000000..c3074df
+--- /dev/null
++++ b/Sources/TMDBApp/Services/FavoritesStore.swift
+@@ -0,0 +1,28 @@
++import Foundation
++
++protocol FavoritesStore {
++    func load() -> [Movie]
++    func save(_ movies: [Movie])
++}
++
++/// Persists favorites as JSON-encoded `Movie` values (in insertion order) in `UserDefaults`.
++struct UserDefaultsFavoritesStore: FavoritesStore {
++    private let defaults: UserDefaults
++    private let key: String
++
++    init(defaults: UserDefaults = .standard, key: String = "favorites.movies") {
++        self.defaults = defaults
++        self.key = key
++    }
++
++    func load() -> [Movie] {
++        guard let data = defaults.data(forKey: key),
++              let movies = try? JSONDecoder().decode([Movie].self, from: data) else { return [] }
++        return movies
++    }
++
++    func save(_ movies: [Movie]) {
++        guard let data = try? JSONEncoder().encode(movies) else { return }
++        defaults.set(data, forKey: key)
++    }
++}
+diff --git a/Sources/TMDBApp/ViewModels/FavoritesViewModel.swift b/Sources/TMDBApp/ViewModels/FavoritesViewModel.swift
+new file mode 100644
+index 0000000..09d7f10
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/FavoritesViewModel.swift
+@@ -0,0 +1,33 @@
++import Foundation
++import Observation
++
++@MainActor
++@Observable
++final class FavoritesViewModel {
++    private(set) var favorites: [Movie]
++    @ObservationIgnored private let store: any FavoritesStore
++
++    init(store: any FavoritesStore) {
++        self.store = store
++        var seen = Set<Int>()
++        self.favorites = store.load().filter { seen.insert($0.id).inserted }
++    }
++
++    func isFavorite(_ movie: Movie) -> Bool {
++        favorites.contains { $0.id == movie.id }
++    }
++
++    func toggle(_ movie: Movie) {
++        if let index = favorites.firstIndex(where: { $0.id == movie.id }) {
++            favorites.remove(at: index)
++        } else {
++            favorites.append(movie)
++        }
++        store.save(favorites)
++    }
++
++    func remove(at offsets: IndexSet) {
++        favorites.remove(atOffsets: offsets)
++        store.save(favorites)
++    }
++}
+diff --git a/Sources/TMDBApp/Views/FavoritesView.swift b/Sources/TMDBApp/Views/FavoritesView.swift
+new file mode 100644
+index 0000000..707eaca
+--- /dev/null
++++ b/Sources/TMDBApp/Views/FavoritesView.swift
+@@ -0,0 +1,38 @@
++import SwiftUI
++
++struct FavoritesView: View {
++    @Environment(FavoritesViewModel.self) private var viewModel
++    private let service: any MovieService
++
++    init(service: any MovieService) {
++        self.service = service
++    }
++
++    var body: some View {
++        NavigationStack {
++            Group {
++                if viewModel.favorites.isEmpty {
++                    VStack(spacing: 8) {
++                        Image(systemName: "heart").font(.largeTitle).foregroundStyle(.secondary)
++                        Text("No favorites yet.").foregroundStyle(.secondary)
++                        Text("Tap the heart on a movie to save it here.")
++                            .font(.footnote).foregroundStyle(.secondary)
++                    }
++                    .padding()
++                    .frame(maxWidth: .infinity, maxHeight: .infinity)
++                } else {
++                    List {
++                        ForEach(viewModel.favorites) { movie in
++                            NavigationLink(value: movie) { MovieRowView(movie: movie) }
++                        }
++                        .onDelete { viewModel.remove(at: $0) }
++                    }
++                }
++            }
++            .navigationTitle("Favorites")
++            .navigationDestination(for: Movie.self) { movie in
++                MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service), movie: movie)
++            }
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/MovieDetailView.swift b/Sources/TMDBApp/Views/MovieDetailView.swift
+index a66008e..322efff 100644
+--- a/Sources/TMDBApp/Views/MovieDetailView.swift
++++ b/Sources/TMDBApp/Views/MovieDetailView.swift
+@@ -2,10 +2,13 @@ import SwiftUI
+ 
+ struct MovieDetailView: View {
+     @State private var viewModel: MovieDetailViewModel
++    @Environment(FavoritesViewModel.self) private var favorites
++    let movie: Movie
+     var imageURLBuilder = ImageURLBuilder()
+ 
+-    init(viewModel: MovieDetailViewModel) {
++    init(viewModel: MovieDetailViewModel, movie: Movie) {
+         _viewModel = State(initialValue: viewModel)
++        self.movie = movie
+     }
+ 
+     var body: some View {
+@@ -14,6 +17,16 @@ struct MovieDetailView: View {
+             .navigationBarTitleDisplayMode(.inline)
+             #endif
+             .task { await viewModel.load() }
++            .toolbar {
++                ToolbarItem(placement: .primaryAction) {
++                    Button {
++                        favorites.toggle(movie)
++                    } label: {
++                        Image(systemName: favorites.isFavorite(movie) ? "heart.fill" : "heart")
++                    }
++                    .accessibilityLabel(favorites.isFavorite(movie) ? "Remove from favorites" : "Add to favorites")
++                }
++            }
+     }
+ 
+     @ViewBuilder
+diff --git a/Sources/TMDBApp/Views/MovieListView.swift b/Sources/TMDBApp/Views/MovieListView.swift
+index b5b298e..89ed70a 100644
+--- a/Sources/TMDBApp/Views/MovieListView.swift
++++ b/Sources/TMDBApp/Views/MovieListView.swift
+@@ -15,7 +15,7 @@ struct MovieListView: View {
+                 .navigationTitle("Popular")
+                 .task { await viewModel.load() }
+                 .navigationDestination(for: Movie.self) { movie in
+-                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
++                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service), movie: movie)
+                 }
+         }
+     }
+diff --git a/Sources/TMDBApp/Views/SearchView.swift b/Sources/TMDBApp/Views/SearchView.swift
+index 385c68b..2e97738 100644
+--- a/Sources/TMDBApp/Views/SearchView.swift
++++ b/Sources/TMDBApp/Views/SearchView.swift
+@@ -19,7 +19,7 @@ struct SearchView: View {
+                 .autocorrectionDisabled()
+                 #endif
+                 .navigationDestination(for: Movie.self) { movie in
+-                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
++                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service), movie: movie)
+                 }
+         }
+     }
+diff --git a/Tests/TMDBAppTests/FavoritesTests.swift b/Tests/TMDBAppTests/FavoritesTests.swift
+new file mode 100644
+index 0000000..550e7bc
+--- /dev/null
++++ b/Tests/TMDBAppTests/FavoritesTests.swift
+@@ -0,0 +1,94 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@MainActor
++@Suite("Favorites")
++struct FavoritesTests {
++    private func movies() throws -> [Movie] {
++        try JSONDecoder.tmdb.decode(PagedResponse<Movie>.self, from: Fixture.data("popular_page1")).results
++    }
++
++    /// Runs `body` with a fresh, uniquely named suite that is removed afterwards.
++    private func withSuite(_ body: (UserDefaults) throws -> Void) throws {
++        let name = "favorites.tests." + UUID().uuidString
++        let defaults = try #require(UserDefaults(suiteName: name))
++        defer { defaults.removePersistentDomain(forName: name) }
++        try body(defaults)
++    }
++
++    @Test func toggleOnAndOff() throws {
++        try withSuite { defaults in
++            let movie = try movies()[0]
++            let vm = FavoritesViewModel(store: UserDefaultsFavoritesStore(defaults: defaults))
++            #expect(!vm.isFavorite(movie))
++            vm.toggle(movie)
++            #expect(vm.isFavorite(movie))
++            #expect(vm.favorites == [movie])
++            vm.toggle(movie)
++            #expect(!vm.isFavorite(movie))
++            #expect(vm.favorites.isEmpty)
++        }
++    }
++
++    @Test func persistsAcrossStoreInstances() throws {
++        try withSuite { defaults in
++            let all = try movies()
++            let vm = FavoritesViewModel(store: UserDefaultsFavoritesStore(defaults: defaults))
++            vm.toggle(all[0])
++            vm.toggle(all[1])
++            let reloaded = FavoritesViewModel(store: UserDefaultsFavoritesStore(defaults: defaults))
++            #expect(reloaded.favorites == [all[0], all[1]])
++            #expect(UserDefaultsFavoritesStore(defaults: defaults).load() == [all[0], all[1]])
++        }
++    }
++
++    @Test func keepsInsertionOrder() throws {
++        try withSuite { defaults in
++            let all = try movies()
++            let vm = FavoritesViewModel(store: UserDefaultsFavoritesStore(defaults: defaults))
++            let order = [all[3], all[0], all[2]]
++            for movie in order { vm.toggle(movie) }
++            #expect(vm.favorites.map(\.id) == order.map(\.id))
++            let reloaded = UserDefaultsFavoritesStore(defaults: defaults).load()
++            #expect(reloaded.map(\.id) == order.map(\.id))
++        }
++    }
++
++    @Test func removeAtOffsetsPersists() throws {
++        try withSuite { defaults in
++            let all = try movies()
++            let store = UserDefaultsFavoritesStore(defaults: defaults)
++            let vm = FavoritesViewModel(store: store)
++            for movie in all.prefix(3) { vm.toggle(movie) }
++            vm.remove(at: IndexSet(integer: 1))
++            #expect(vm.favorites.map(\.id) == [all[0].id, all[2].id])
++            #expect(store.load().map(\.id) == [all[0].id, all[2].id])
++        }
++    }
++
++    @Test func noDuplicates() throws {
++        try withSuite { defaults in
++            let movie = try movies()[0]
++            let store = UserDefaultsFavoritesStore(defaults: defaults)
++            // Duplicates already in storage are dropped on load.
++            store.save([movie, movie])
++            let vm = FavoritesViewModel(store: store)
++            #expect(vm.favorites.count == 1)
++            // Toggling the same movie twice never leaves two copies.
++            vm.toggle(movie)
++            vm.toggle(movie)
++            #expect(vm.favorites.count == 1)
++            #expect(store.load().count == 1)
++        }
++    }
++
++    @Test func movieRoundTripKeepsAllFields() throws {
++        try withSuite { defaults in
++            let store = UserDefaultsFavoritesStore(defaults: defaults)
++            let all = try movies()
++            store.save(all)
++            #expect(store.load() == all)
++        }
++    }
++}

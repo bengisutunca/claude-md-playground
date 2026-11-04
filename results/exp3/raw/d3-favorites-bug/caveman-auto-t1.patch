@@ -1,0 +1,32 @@
+diff --git a/Sources/TMDBApp/Services/FavoritesStore.swift b/Sources/TMDBApp/Services/FavoritesStore.swift
+index 3d18991..6845c4e 100644
+--- a/Sources/TMDBApp/Services/FavoritesStore.swift
++++ b/Sources/TMDBApp/Services/FavoritesStore.swift
+@@ -40,6 +40,6 @@ struct UserDefaultsFavoritesStore: FavoritesStore {
+ 
+     private static func deduplicated(_ movies: [Movie]) -> [Movie] {
+         var seen = Set<Int>()
+-        return movies.filter { !seen.insert($0.id).inserted }
++        return movies.filter { seen.insert($0.id).inserted }
+     }
+ }
+diff --git a/Tests/TMDBAppTests/FavoritesTests.swift b/Tests/TMDBAppTests/FavoritesTests.swift
+index 24574fe..6ede489 100644
+--- a/Tests/TMDBAppTests/FavoritesTests.swift
++++ b/Tests/TMDBAppTests/FavoritesTests.swift
+@@ -73,6 +73,15 @@ struct FavoritesTests {
+         #expect(FavoritesViewModel(store: suite.makeStore()).favorites == [all[0], all[2]])
+     }
+ 
++    /// Regression: distinct favorites were dropped on save, so a relaunch showed an empty list.
++    @Test func distinctMoviesSurviveStoreRoundTrip() throws {
++        let suite = TestSuite(); defer { suite.cleanUp() }
++        let all = try movies()
++        let selection = Array(all.prefix(3))
++        suite.makeStore().save(selection)
++        #expect(suite.makeStore().load() == selection)
++    }
++
+     @Test func noDuplicates() throws {
+         let suite = TestSuite(); defer { suite.cleanUp() }
+         let movie = try movies()[0]

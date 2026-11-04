@@ -1,0 +1,10 @@
+Favorites are in. `swift build` succeeds and `swift test` passes all 55 tests, including 6 new favorites tests. I didn't run the app, so the views are compiled but not exercised.
+
+- **Store and view model:** `FavoritesStore`, `UserDefaultsFavoritesStore` and `FavoritesViewModel` use the exact names and signatures you listed. The view model loads in `init`, saves after every change, and drops any duplicate ids it finds in stored data. Files are in `Services/FavoritesStore.swift` and `ViewModels/FavoritesViewModel.swift`.
+- **`Movie` encoding:** `Movie` is now `Codable`. It encodes with its camelCase keys and the release date as `yyyy-MM-dd`, so it round-trips through a plain `JSONDecoder`. The TMDB decoding path is unchanged. I added `TMDBDate.string(from:)` for the date format.
+- **Views:** `FavoritesView` has swipe to delete and an empty state, and the heart button is in the `MovieDetailView` toolbar (`Views/FavoritesView.swift`, `Views/MovieDetailView.swift`).
+- **Tests:** `Tests/TMDBAppTests/FavoritesTests.swift` covers toggling on and off, persistence across store instances on the same suite, insertion order, removal, no duplicates, and a full `Movie` round-trip. Each test uses its own `UserDefaults` suite and removes it afterwards. They use the `popular_page1` fixture and make no network calls.
+- **API change:** `MovieDetailView.init` now takes `movie:` as well, because the heart needs the full `Movie` and the detail view only had the id. I updated the call sites in `MovieListView` and `SearchView`.
+- **Not wired up:** the package has no app entry point, so nothing creates or injects the shared view model yet. `MovieDetailView` and `FavoritesView` read it with `@Environment(FavoritesViewModel.self)` and will crash if it isn't provided. The host app needs `.environment(FavoritesViewModel(store: UserDefaultsFavoritesStore()))` at its root and a `FavoritesView(service:)` tab or screen.
+
+Nothing is committed, and the fixtures are untouched.

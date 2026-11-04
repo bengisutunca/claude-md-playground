@@ -9,18 +9,18 @@ tokens and quality.
 
 ## Result
 
-**Caveman made Claude's messages shorter, but not the work cheaper.**
+**Caveman did not make building this app cheaper, in any configuration. Quality was the same everywhere.**
 
-| Caveman vs no CLAUDE.md (84 sessions, 95% confidence interval) | |
-|---|---|
-| Length of Claude's messages | **−22%** [−26, −18] |
-| Total cost | **+3.8%** [−1.0, +8.9] |
-| Output tokens | −1.5% [−7.8, +5.2] |
-| Hidden acceptance tests passed | 100% in both |
+| vs plain Claude Code (Sonnet), 95% confidence interval | Cost per session |
+|---|---:|
+| caveman rules as `CLAUDE.md` | +3.8% [−1.0, +8.9] |
+| full caveman tool, Sonnet kept | +8.0% [+2.9, +13.2] |
+| full caveman tool with Auto model routing | +203% [+145, +275] |
 
-In a coding session most output is code, which caveman's rules leave alone, and most of the
-cost is the agent reading files and context. The rules also add about 1.2k tokens to every
-session. Full write-up: **[results/REPORT.md](results/REPORT.md)**.
+The rules shortened Claude's messages by 22%, but in a coding session most output is code and
+most cost is the agent re-reading files and context on every turn. The full tool's compression
+found nothing to compress in this project, and Auto moved almost every task from Sonnet to Opus.
+Full write-up: **[results/REPORT.md](results/REPORT.md)**.
 
 ## Where the code is
 
@@ -35,20 +35,22 @@ written by Claude Code on two branches, one commit per step (`01-models` … `08
 Everything else is the same in both: starting code, prompts, model (Sonnet), tool permissions.
 Each step is a fresh headless Claude Code session.
 
-## Two experiments
+## Experiments
 
-| | Experiment 1: chained | Experiment 2: checkpoint |
-|---|---|---|
-| Design | each branch builds the app step by step on top of its own previous step | every task starts from the same reference commit in both arms |
-| Tasks | 8 build steps | 8 build steps + 3 seeded bug fixes + 3 explain/review questions |
-| Repetitions | 1 | 3 per task and arm |
-| Quality check | the agent's own tests | 53 hidden acceptance tests the agent never sees |
-| Cost difference | +2.7% (interval about −10% to +25%) | +3.8% [−1.0, +8.9] |
-| Results | [results/RESULTS.md](results/RESULTS.md) | [results/exp2/RESULTS.md](results/exp2/RESULTS.md) |
+| | 1: chained | 2: rules as CLAUDE.md | 3: full caveman tool |
+|---|---|---|---|
+| Design | each branch builds on its own previous step | every task starts from the same reference commit in every arm | same as 2 |
+| caveman arm | rules in `CLAUDE.md` | rules in `CLAUDE.md` | `caveman wrap claude`, with and without Auto |
+| Tasks | 8 build steps | 8 build steps + 3 seeded bug fixes + 3 explain/review questions | same as 2 |
+| Repetitions | 1 | 3 per task and arm | 3 (Auto: 1) |
+| Quality check | the agent's own tests | 53 hidden acceptance tests | same as 2 |
+| Cost difference | +2.7% (≈ −10 to +25) | +3.8% [−1.0, +8.9] | +8.0% [+2.9, +13.2]; Auto +203% |
+| Results | [results/RESULTS.md](results/RESULTS.md) | [results/exp2/RESULTS.md](results/exp2/RESULTS.md) | [results/exp3/RESULTS.md](results/exp3/RESULTS.md) |
 
 Experiment 1 is realistic but too noisy to conclude anything: after a few steps the two
-branches work on different code. Experiment 2 removes that drift and repeats every task, so
-its interval is narrow enough to rule out savings larger than about 1%.
+branches work on different code. Experiment 2 removes that drift and repeats every task.
+Experiment 3 replaces the CLAUDE.md with the real caveman install (proxy, compression, voice),
+run per session with `caveman wrap`, plus an arm where caveman's Auto picks the model.
 
 ## Layout
 
@@ -61,10 +63,11 @@ bench/
   tasks/                              experiment 1 prompts (01–08)
   setup.sh  run.sh  redo.sh  reset.sh  summarize.py
   exp2/                               experiment 2: tasks, hidden acceptance tests, run.py, calibrate.py
+  exp3/                               experiment 3: runs the same tasks through `caveman wrap`
 results/
   REPORT.md                           findings, method, limits
   run-1/  RESULTS.md                  experiment 1 data
-  exp2/                               experiment 2 data: per session JSON, answer, patch, test logs
+  exp2/  exp3/                        per session JSON, answer, patch, test logs
 ```
 
 ## Running it yourself (macOS)
@@ -77,6 +80,11 @@ Requirements: Xcode 16+, Claude Code (`claude`) logged in, `python3`.
 
 python3 bench/exp2/calibrate.py      # experiment 2: check the hidden tests (no Claude calls)
 python3 bench/exp2/run.py            # 14 tasks × 2 arms × 3 trials, resumable
+
+# experiment 3 needs the caveman CLI and its binaries (caveman setup --install), not wired globally
+caveman disable claude
+python3 bench/exp3/run.py --arms baseline,caveman --trials 3
+python3 bench/exp3/run.py --arms caveman-auto --trials 1   # needs `caveman login`
 ```
 
 Before running, rename `~/.claude/CLAUDE.md` if you have one and disable any caveman install;

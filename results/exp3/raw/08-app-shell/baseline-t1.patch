@@ -1,0 +1,598 @@
+diff --git a/Sources/TMDBApp/AppDependencies.swift b/Sources/TMDBApp/AppDependencies.swift
+new file mode 100644
+index 0000000..708752c
+--- /dev/null
++++ b/Sources/TMDBApp/AppDependencies.swift
+@@ -0,0 +1,33 @@
++import Foundation
++
++/// Composition root: builds the shared services once and hands out view models.
++@MainActor
++final class AppDependencies {
++    let movieService: any MovieService
++    let favorites: FavoritesViewModel
++
++    init(movieService: any MovieService, favoritesStore: any FavoritesStore) {
++        self.movieService = movieService
++        self.favorites = FavoritesViewModel(store: favoritesStore)
++    }
++
++    /// Real dependencies. Never crashes without `TMDB_API_KEY`: requests fail with `APIError.missingAPIKey`.
++    static func live() -> AppDependencies {
++        AppDependencies(movieService: TMDBMovieService(client: TMDBClient()),
++                        favoritesStore: UserDefaultsFavoritesStore())
++    }
++
++    /// Mock data, no network, nothing persisted. A fresh instance on every access.
++    static var preview: AppDependencies {
++        AppDependencies(movieService: PreviewMovieService(),
++                        favoritesStore: InMemoryFavoritesStore(movies: [PreviewMovieService.movies[0]]))
++    }
++
++    func makeMovieListViewModel() -> MovieListViewModel {
++        MovieListViewModel(service: movieService)
++    }
++
++    func makeSearchViewModel() -> SearchViewModel {
++        SearchViewModel(service: movieService)
++    }
++}
+diff --git a/Sources/TMDBApp/Networking/APIConfiguration.swift b/Sources/TMDBApp/Networking/APIConfiguration.swift
+index dfec0a0..140deed 100644
+--- a/Sources/TMDBApp/Networking/APIConfiguration.swift
++++ b/Sources/TMDBApp/Networking/APIConfiguration.swift
+@@ -8,7 +8,7 @@ struct APIConfiguration: Sendable {
+     let apiKey: String
+     let baseURL: URL
+ 
+-    init(apiKey: String, baseURL: URL = URL(string: "https://api.themoviedb.org/3")!) {
++    init(apiKey: String, baseURL: URL = TMDBApp.apiBaseURL) {
+         self.apiKey = apiKey
+         self.baseURL = baseURL
+     }
+diff --git a/Sources/TMDBApp/Services/InMemoryFavoritesStore.swift b/Sources/TMDBApp/Services/InMemoryFavoritesStore.swift
+new file mode 100644
+index 0000000..65c4010
+--- /dev/null
++++ b/Sources/TMDBApp/Services/InMemoryFavoritesStore.swift
+@@ -0,0 +1,11 @@
++import Foundation
++
++/// Non-persistent `FavoritesStore`, used by previews.
++final class InMemoryFavoritesStore: FavoritesStore {
++    private var movies: [Movie]
++
++    init(movies: [Movie] = []) { self.movies = movies }
++
++    func load() -> [Movie] { movies }
++    func save(_ movies: [Movie]) { self.movies = movies }
++}
+diff --git a/Sources/TMDBApp/Services/PreviewMovieService.swift b/Sources/TMDBApp/Services/PreviewMovieService.swift
+new file mode 100644
+index 0000000..821723a
+--- /dev/null
++++ b/Sources/TMDBApp/Services/PreviewMovieService.swift
+@@ -0,0 +1,47 @@
++import Foundation
++
++/// `MovieService` serving a small built-in data set. Never touches the network.
++struct PreviewMovieService: MovieService {
++    static let movies: [Movie] = [
++        Movie(id: 27205, title: "Inception",
++              overview: "A thief who steals corporate secrets through dream-sharing technology.",
++              releaseDate: TMDBDate.parse("2010-07-15"), voteAverage: 8.4, voteCount: 35000),
++        Movie(id: 157336, title: "Interstellar",
++              overview: "A team of explorers travel through a wormhole in space.",
++              releaseDate: TMDBDate.parse("2014-11-05"), voteAverage: 8.4, voteCount: 33000),
++        Movie(id: 155, title: "The Dark Knight",
++              overview: "Batman faces the Joker, a criminal mastermind.",
++              releaseDate: TMDBDate.parse("2008-07-16"), voteAverage: 8.5, voteCount: 32000)
++    ]
++
++    private static let detailJSON = """
++    {"id": 27205, "title": "Inception",
++     "overview": "A thief who steals corporate secrets through dream-sharing technology.",
++     "release_date": "2010-07-15", "vote_average": 8.4, "vote_count": 35000, "runtime": 148,
++     "tagline": "Your mind is the scene of the crime.", "status": "Released",
++     "genres": [{"id": 28, "name": "Action"}, {"id": 878, "name": "Science Fiction"}]}
++    """
++
++    private static let creditsJSON = """
++    {"id": 27205,
++     "cast": [{"id": 6193, "name": "Leonardo DiCaprio", "character": "Cobb", "order": 0}],
++     "crew": [{"id": 525, "name": "Christopher Nolan", "job": "Director", "department": "Directing"}]}
++    """
++
++    func popular(page: Int) async throws -> PagedResponse<Movie> {
++        PagedResponse(page: 1, results: Self.movies, totalPages: 1, totalResults: Self.movies.count)
++    }
++
++    func search(query: String, page: Int) async throws -> PagedResponse<Movie> {
++        let hits = Self.movies.filter { $0.title.range(of: query, options: .caseInsensitive) != nil }
++        return PagedResponse(page: 1, results: hits, totalPages: 1, totalResults: hits.count)
++    }
++
++    func detail(id: Int) async throws -> MovieDetail {
++        try JSONDecoder.tmdb.decode(MovieDetail.self, from: Data(Self.detailJSON.utf8))
++    }
++
++    func credits(id: Int) async throws -> Credits {
++        try JSONDecoder.tmdb.decode(Credits.self, from: Data(Self.creditsJSON.utf8))
++    }
++}
+diff --git a/Sources/TMDBApp/ViewModels/MovieListViewModel.swift b/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
+index bc91c94..e7c6f22 100644
+--- a/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
++++ b/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
+@@ -87,7 +87,7 @@ final class MovieListViewModel {
+         }
+         switch apiError {
+         case .missingAPIKey:
+-            return "The TMDB API key is missing."
++            return "The TMDB API key is missing. Set TMDB_API_KEY in the environment or Info.plist."
+         case .httpStatus(let code, let message):
+             if code == 401 { return "Invalid API key." }
+             return message ?? "The server returned an error (\(code))."
+diff --git a/Sources/TMDBApp/Views/EmptyStateView.swift b/Sources/TMDBApp/Views/EmptyStateView.swift
+new file mode 100644
+index 0000000..cc588c4
+--- /dev/null
++++ b/Sources/TMDBApp/Views/EmptyStateView.swift
+@@ -0,0 +1,25 @@
++import SwiftUI
++
++struct EmptyStateView: View {
++    let title: String
++    let systemImage: String
++    let message: String?
++
++    init(title: String, systemImage: String, message: String? = nil) {
++        self.title = title
++        self.systemImage = systemImage
++        self.message = message
++    }
++
++    var body: some View {
++        ContentUnavailableView {
++            Label(title, systemImage: systemImage)
++        } description: {
++            if let message { Text(message) }
++        }
++    }
++}
++
++#Preview {
++    EmptyStateView(title: "No Favorites", systemImage: "heart", message: "Tap the heart on a movie to add it.")
++}
+diff --git a/Sources/TMDBApp/Views/ErrorView.swift b/Sources/TMDBApp/Views/ErrorView.swift
+new file mode 100644
+index 0000000..46c43b6
+--- /dev/null
++++ b/Sources/TMDBApp/Views/ErrorView.swift
+@@ -0,0 +1,28 @@
++import SwiftUI
++
++struct ErrorView: View {
++    let message: String
++    let retry: (() -> Void)?
++
++    init(message: String, retry: (() -> Void)? = nil) {
++        self.message = message
++        self.retry = retry
++    }
++
++    var body: some View {
++        ContentUnavailableView {
++            Label("Something Went Wrong", systemImage: "exclamationmark.triangle")
++        } description: {
++            Text(message)
++        } actions: {
++            if let retry {
++                Button("Try Again", action: retry)
++                    .buttonStyle(.borderedProminent)
++            }
++        }
++    }
++}
++
++#Preview {
++    ErrorView(message: "Couldn't reach the server.", retry: {})
++}
+diff --git a/Sources/TMDBApp/Views/FavoritesView.swift b/Sources/TMDBApp/Views/FavoritesView.swift
+index 9f5892f..3840a77 100644
+--- a/Sources/TMDBApp/Views/FavoritesView.swift
++++ b/Sources/TMDBApp/Views/FavoritesView.swift
+@@ -9,27 +9,28 @@ struct FavoritesView: View {
+     }
+ 
+     var body: some View {
+-        NavigationStack {
+-            Group {
+-                if favorites.favorites.isEmpty {
+-                    Text("No favorites yet.\nTap the heart on a movie to add it.")
+-                        .multilineTextAlignment(.center)
+-                        .foregroundStyle(.secondary)
+-                        .padding()
+-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+-                } else {
+-                    List {
+-                        ForEach(favorites.favorites) { movie in
+-                            NavigationLink(value: movie) { MovieRowView(movie: movie) }
+-                        }
+-                        .onDelete { favorites.remove(at: $0) }
++        Group {
++            if favorites.favorites.isEmpty {
++                EmptyStateView(title: "No Favorites", systemImage: "heart",
++                               message: "Tap the heart on a movie to add it.")
++            } else {
++                List {
++                    ForEach(favorites.favorites) { movie in
++                        NavigationLink(value: movie) { MovieRowView(movie: movie) }
+                     }
++                    .onDelete { favorites.remove(at: $0) }
+                 }
+             }
+-            .navigationTitle("Favorites")
+-            .navigationDestination(for: Movie.self) { movie in
+-                MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
+-            }
+         }
++        .navigationTitle("Favorites")
++        .movieDetailDestination(service: service)
++    }
++}
++
++#Preview {
++    let dependencies = AppDependencies.preview
++    NavigationStack {
++        FavoritesView(service: dependencies.movieService)
+     }
++    .environment(dependencies.favorites)
+ }
+diff --git a/Sources/TMDBApp/Views/LoadingView.swift b/Sources/TMDBApp/Views/LoadingView.swift
+new file mode 100644
+index 0000000..2f473b1
+--- /dev/null
++++ b/Sources/TMDBApp/Views/LoadingView.swift
+@@ -0,0 +1,11 @@
++import SwiftUI
++
++struct LoadingView: View {
++    var body: some View {
++        ProgressView()
++            .frame(maxWidth: .infinity, maxHeight: .infinity)
++            .accessibilityLabel("Loading")
++    }
++}
++
++#Preview { LoadingView() }
+diff --git a/Sources/TMDBApp/Views/MovieDetailView.swift b/Sources/TMDBApp/Views/MovieDetailView.swift
+index 38986cd..1736898 100644
+--- a/Sources/TMDBApp/Views/MovieDetailView.swift
++++ b/Sources/TMDBApp/Views/MovieDetailView.swift
+@@ -35,11 +35,11 @@ struct MovieDetailView: View {
+     private var content: some View {
+         switch viewModel.state {
+         case .idle, .loading:
+-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
++            LoadingView()
+         case .empty:
+-            message("No details available.", retry: false)
++            EmptyStateView(title: "No Details", systemImage: "film", message: "No details available.")
+         case .failed(let text):
+-            message(text, retry: true)
++            ErrorView(message: text) { Task { await viewModel.retry() } }
+         case .loaded(let content):
+             ScrollView { loaded(content) }
+         }
+@@ -117,25 +117,14 @@ struct MovieDetailView: View {
+     }
+ 
+     private func image(_ path: String?, size: ImageURLBuilder.Size) -> some View {
+-        AsyncImage(url: imageURLBuilder.url(path: path, size: size)) { image in
+-            image.resizable().scaledToFill()
+-        } placeholder: {
+-            ZStack {
+-                Rectangle().fill(.quaternary)
+-                Image(systemName: "film").foregroundStyle(.secondary)
+-            }
+-        }
++        RemoteImage(url: imageURLBuilder.url(path: path, size: size))
+     }
++}
+ 
+-    private func message(_ text: String, retry: Bool) -> some View {
+-        VStack(spacing: 12) {
+-            Text(text).multilineTextAlignment(.center).foregroundStyle(.secondary)
+-            if retry {
+-                Button("Try Again") { Task { await viewModel.retry() } }
+-                    .buttonStyle(.borderedProminent)
+-            }
+-        }
+-        .padding()
+-        .frame(maxWidth: .infinity, maxHeight: .infinity)
++#Preview {
++    let dependencies = AppDependencies.preview
++    NavigationStack {
++        MovieDetailView(viewModel: MovieDetailViewModel(movieID: 27205, service: dependencies.movieService))
+     }
++    .environment(dependencies.favorites)
+ }
+diff --git a/Sources/TMDBApp/Views/MovieListView.swift b/Sources/TMDBApp/Views/MovieListView.swift
+index b5b298e..0a72f47 100644
+--- a/Sources/TMDBApp/Views/MovieListView.swift
++++ b/Sources/TMDBApp/Views/MovieListView.swift
+@@ -1,5 +1,14 @@
+ import SwiftUI
+ 
++extension View {
++    /// Pushes `MovieDetailView` for any `Movie` value navigated to from this view's stack.
++    func movieDetailDestination(service: any MovieService) -> some View {
++        navigationDestination(for: Movie.self) { movie in
++            MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
++        }
++    }
++}
++
+ struct MovieListView: View {
+     @State private var viewModel: MovieListViewModel
+     private let service: any MovieService
+@@ -10,25 +19,21 @@ struct MovieListView: View {
+     }
+ 
+     var body: some View {
+-        NavigationStack {
+-            content
+-                .navigationTitle("Popular")
+-                .task { await viewModel.load() }
+-                .navigationDestination(for: Movie.self) { movie in
+-                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
+-                }
+-        }
++        content
++            .navigationTitle("Popular")
++            .task { await viewModel.load() }
++            .movieDetailDestination(service: service)
+     }
+ 
+     @ViewBuilder
+     private var content: some View {
+         switch viewModel.state {
+         case .idle, .loading:
+-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
++            LoadingView()
+         case .empty:
+-            message("No movies found.", retry: false)
++            EmptyStateView(title: "No Movies", systemImage: "film", message: "No popular movies found.")
+         case .failed(let text):
+-            message(text, retry: true)
++            ErrorView(message: text) { Task { await viewModel.refresh() } }
+         case .loaded(let movies):
+             List {
+                 ForEach(movies) { movie in
+@@ -55,16 +60,19 @@ struct MovieListView: View {
+             .frame(maxWidth: .infinity)
+         }
+     }
++}
+ 
+-    private func message(_ text: String, retry: Bool) -> some View {
+-        VStack(spacing: 12) {
+-            Text(text).multilineTextAlignment(.center).foregroundStyle(.secondary)
+-            if retry {
+-                Button("Try Again") { Task { await viewModel.refresh() } }
+-                    .buttonStyle(.borderedProminent)
+-            }
+-        }
+-        .padding()
+-        .frame(maxWidth: .infinity, maxHeight: .infinity)
++#Preview {
++    let dependencies = AppDependencies.preview
++    NavigationStack {
++        MovieListView(viewModel: dependencies.makeMovieListViewModel(), service: dependencies.movieService)
++    }
++    .environment(dependencies.favorites)
++}
++
++#Preview("Missing API key") {
++    let service = TMDBMovieService(client: TMDBClient(configuration: nil))
++    NavigationStack {
++        MovieListView(viewModel: MovieListViewModel(service: service), service: service)
+     }
+ }
+diff --git a/Sources/TMDBApp/Views/MovieRowView.swift b/Sources/TMDBApp/Views/MovieRowView.swift
+index 41b85b4..1b854b9 100644
+--- a/Sources/TMDBApp/Views/MovieRowView.swift
++++ b/Sources/TMDBApp/Views/MovieRowView.swift
+@@ -6,14 +6,7 @@ struct MovieRowView: View {
+ 
+     var body: some View {
+         HStack(spacing: 12) {
+-            AsyncImage(url: imageURLBuilder.url(path: movie.posterPath, size: .w185)) { image in
+-                image.resizable().scaledToFill()
+-            } placeholder: {
+-                ZStack {
+-                    Rectangle().fill(.quaternary)
+-                    Image(systemName: "film").foregroundStyle(.secondary)
+-                }
+-            }
++            RemoteImage(url: imageURLBuilder.url(path: movie.posterPath, size: .w185))
+             .frame(width: 60, height: 90)
+             .clipShape(RoundedRectangle(cornerRadius: 6))
+ 
+diff --git a/Sources/TMDBApp/Views/RemoteImage.swift b/Sources/TMDBApp/Views/RemoteImage.swift
+new file mode 100644
+index 0000000..7fe64f4
+--- /dev/null
++++ b/Sources/TMDBApp/Views/RemoteImage.swift
+@@ -0,0 +1,17 @@
++import SwiftUI
++
++/// Async image filling its frame, with a film-icon placeholder while loading or when `url` is nil.
++struct RemoteImage: View {
++    let url: URL?
++
++    var body: some View {
++        AsyncImage(url: url) { image in
++            image.resizable().scaledToFill()
++        } placeholder: {
++            ZStack {
++                Rectangle().fill(.quaternary)
++                Image(systemName: "film").foregroundStyle(.secondary)
++            }
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/RootView.swift b/Sources/TMDBApp/Views/RootView.swift
+new file mode 100644
+index 0000000..e1b15af
+--- /dev/null
++++ b/Sources/TMDBApp/Views/RootView.swift
+@@ -0,0 +1,37 @@
++import SwiftUI
++
++struct RootView: View {
++    private let dependencies: AppDependencies
++    @State private var listViewModel: MovieListViewModel
++    @State private var searchViewModel: SearchViewModel
++
++    init(dependencies: AppDependencies) {
++        self.dependencies = dependencies
++        _listViewModel = State(initialValue: dependencies.makeMovieListViewModel())
++        _searchViewModel = State(initialValue: dependencies.makeSearchViewModel())
++    }
++
++    var body: some View {
++        TabView {
++            NavigationStack {
++                MovieListView(viewModel: listViewModel, service: dependencies.movieService)
++            }
++            .tabItem { Label("Popular", systemImage: "film") }
++
++            NavigationStack {
++                SearchView(viewModel: searchViewModel, service: dependencies.movieService)
++            }
++            .tabItem { Label("Search", systemImage: "magnifyingglass") }
++
++            NavigationStack {
++                FavoritesView(service: dependencies.movieService)
++            }
++            .tabItem { Label("Favorites", systemImage: "heart") }
++        }
++        .environment(dependencies.favorites)
++    }
++}
++
++#Preview {
++    RootView(dependencies: .preview)
++}
+diff --git a/Sources/TMDBApp/Views/SearchView.swift b/Sources/TMDBApp/Views/SearchView.swift
+index 385c68b..76e0ed6 100644
+--- a/Sources/TMDBApp/Views/SearchView.swift
++++ b/Sources/TMDBApp/Views/SearchView.swift
+@@ -10,43 +10,41 @@ struct SearchView: View {
+     }
+ 
+     var body: some View {
+-        NavigationStack {
+-            content
+-                .navigationTitle("Search")
+-                .searchable(text: $viewModel.query, prompt: "Search movies")
+-                #if os(iOS)
+-                .textInputAutocapitalization(.never)
+-                .autocorrectionDisabled()
+-                #endif
+-                .navigationDestination(for: Movie.self) { movie in
+-                    MovieDetailView(viewModel: MovieDetailViewModel(movieID: movie.id, service: service))
+-                }
+-        }
++        content
++            .navigationTitle("Search")
++            .searchable(text: $viewModel.query, prompt: "Search movies")
++            #if os(iOS)
++            .textInputAutocapitalization(.never)
++            .autocorrectionDisabled()
++            #endif
++            .movieDetailDestination(service: service)
+     }
+ 
+     @ViewBuilder
+     private var content: some View {
+         switch viewModel.state {
+         case .idle:
+-            message("Type at least 2 characters to search.")
++            EmptyStateView(title: "Search Movies", systemImage: "magnifyingglass",
++                           message: "Type at least \(SearchViewModel.minimumQueryLength) characters to search.")
+         case .loading:
+-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
++            LoadingView()
+         case .empty:
+-            message("No results for \"\(viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines))\".")
++            EmptyStateView(title: "No Results", systemImage: "magnifyingglass",
++                           message: "Nothing found for \"\(viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines))\".")
+         case .failed(let text):
+-            message(text)
++            ErrorView(message: text)
+         case .loaded(let movies):
+             List(movies) { movie in
+                 NavigationLink(value: movie) { MovieRowView(movie: movie) }
+             }
+         }
+     }
++}
+ 
+-    private func message(_ text: String) -> some View {
+-        Text(text)
+-            .multilineTextAlignment(.center)
+-            .foregroundStyle(.secondary)
+-            .padding()
+-            .frame(maxWidth: .infinity, maxHeight: .infinity)
++#Preview {
++    let dependencies = AppDependencies.preview
++    NavigationStack {
++        SearchView(viewModel: dependencies.makeSearchViewModel(), service: dependencies.movieService)
+     }
++    .environment(dependencies.favorites)
+ }
+diff --git a/Tests/TMDBAppTests/AppDependenciesTests.swift b/Tests/TMDBAppTests/AppDependenciesTests.swift
+new file mode 100644
+index 0000000..156fa63
+--- /dev/null
++++ b/Tests/TMDBAppTests/AppDependenciesTests.swift
+@@ -0,0 +1,36 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@MainActor
++@Suite("AppDependencies")
++struct AppDependenciesTests {
++    @Test func previewServesMockDataOffline() async throws {
++        let deps = AppDependencies.preview
++        let popular = try await deps.movieService.popular(page: 1)
++        #expect(!popular.results.isEmpty)
++        let hits = try await deps.movieService.search(query: "inception", page: 1)
++        #expect(hits.results.map(\.title) == ["Inception"])
++        let detail = try await deps.movieService.detail(id: 27205)
++        #expect(detail.title == "Inception")
++        let credits = try await deps.movieService.credits(id: 27205)
++        #expect(credits.crew.first?.job == "Director")
++    }
++
++    @Test func previewViewModelsLoad() async {
++        let vm = AppDependencies.preview.makeMovieListViewModel()
++        await vm.load()
++        #expect(vm.state == .loaded(PreviewMovieService.movies))
++    }
++
++    @Test func missingKeyMapsToClearMessage() {
++        let message = MovieListViewModel.message(for: APIError.missingAPIKey)
++        #expect(message.contains("TMDB_API_KEY"))
++    }
++
++    @Test func liveDoesNotCrashAndInjectsFavorites() {
++        let deps = AppDependencies(movieService: PreviewMovieService(), favoritesStore: InMemoryFavoritesStore())
++        #expect(deps.favorites.favorites.isEmpty)
++        _ = AppDependencies.live()
++    }
++}

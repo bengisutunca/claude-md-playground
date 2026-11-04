@@ -1,0 +1,3 @@
+⚠ running caveman proxy has stale recovery state — launching this agent direct to avoid unsafe compression
+→ wrapping Claude Code · direct (no Caveman this run) · using your own provider key
+Ignoring 14 permissions.allow entries from .claude/settings.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["/Users/bengisutunca/Documents/GitHub/claude-md-playground"].hasTrustDialogAccepted: true in /Users/bengisutunca/.claude.json.

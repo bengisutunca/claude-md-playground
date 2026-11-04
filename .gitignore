@@ -10,3 +10,7 @@ Secrets.xcconfig
 # Discarded benchmark runs (bench/reset.sh)
 results/_discarded/
 __pycache__/
+
+# Local caveman diagnostics (contain account info)
+caveman-probe*.txt
+caveman-setup.log

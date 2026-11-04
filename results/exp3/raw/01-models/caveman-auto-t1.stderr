@@ -1,0 +1,9 @@
+caveman · compress · Claude Code
+watching…
+→ subscription logins (Claude Pro/Max) compress locally too — live zone only; compressed turns are re-sent byte-identically so the provider cache stays warm
+→ subscription and OAuth logins are counted in tokens only (local o200k estimate) — a seat has no per-token price, so no dollar figure is claimed for them
+[claude-code:unrecognized_model] {"model":"caveman-auto[1m]","query_source":"sdk"}
+9 requests · 370k tokens sent
+compression cut ~124 of those · compressed parts 452 → 328 (27%) — estimated locally (inferred).
+subscription and OAuth logins are counted in tokens only (local o200k estimate) — a seat has no per-token price, so no dollar figure is claimed for them.
+→ synced 9 local spans · 124 estimated tokens saved (inferred; counter basis estimated_engine_o200k) → https://caveman.so/costs
