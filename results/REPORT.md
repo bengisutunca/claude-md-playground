@@ -11,6 +11,9 @@ hidden acceptance tests). Cost was not lower in any configuration:
 | full caveman tool, Sonnet kept (exp 3) | **+8.0%** | +2.9 to +13.2 |
 | full caveman tool with Auto model routing (exp 3) | **+203%** (about 3×) | +145 to +275 |
 
+Caveman's own "54% cheaper" figure for Auto compares it with Opus at xhigh effort, not with Sonnet;
+see [Experiment 3](#experiment-3-the-full-caveman-tool) for how the two results fit together.
+
 ## Setup
 
 - **App:** TMDB movie browser, Swift Package, iOS 17+, MVVM, Swift Testing; tests use JSON fixtures, never the network.
@@ -60,8 +63,28 @@ about 1.2k tokens to every session (+9% cache writes), which outweighs the short
 
 **With Auto, caveman cost about 3× as much** (+203% [+145, +275], 14 tasks): Auto sent 13 of 14
 tasks to **Opus 5.5** instead of Sonnet. Quality stayed at 100%, so the stronger model bought
-nothing measurable on these tasks. Caveman's own "54% cheaper" figure compares Auto with *Opus at
-xhigh effort on every request*; for someone already on Sonnet, Auto is an upgrade, not a saving.
+nothing measurable on these tasks.
+
+**Why this does not contradict caveman's "54% cheaper, same score".** Caveman's own Auto
+benchmark ([docs/AUTO-BENCHMARK.md](https://github.com/JuliusBrussee/caveman/blob/v4.0.1/docs/AUTO-BENCHMARK.md),
+v4.0.1) measures something else:
+
+| | Caveman's benchmark | This experiment |
+|---|---|---|
+| Baseline | Opus 5.5 at **xhigh** effort on every request | Sonnet 5.5, default effort |
+| What Auto chose | Opus medium 87%, Opus high 8%, Sonnet 5% of requests | Opus for 13 of 14 tasks |
+| Tasks | 85 paired coding tasks (SWE-Interact, SWE-Together), 1 attempt each | 14 tasks of this app, 1 attempt each |
+| Quality | 43.7% vs 44.3% resolved, gap −0.5 points [−6.8, +5.7] | 100% vs 100% hidden tests |
+| Cost | **0.46×** baseline ($3.59 vs $7.83 per attempt) | **≈3×** baseline |
+| Status | interim: 85 of 169 tasks done | complete |
+
+Auto behaves the same way in both: it mostly picks Opus (at medium effort in caveman's runs; this
+experiment did not record the effort). Against Opus at xhigh that is a step down, so it saves money;
+against Sonnet it is a step up, so it costs more. The
+benchmark says as much itself: *"Most of the saving comes from lower effort (Opus xhigh to Opus
+medium or high), not from cheaper models. Against an agent already on Opus at medium effort,
+expect much less. Not measured."* An agent already on Sonnet was not measured there either; this
+experiment fills that gap. Auto's saving depends on where you start.
 
 **Measuring Auto.** Claude Code cannot price the `caveman-auto[1m]` model id (`costBasis:
 unknown`), and on the one task Auto sent to Sonnet it billed Opus rates ($0.22 instead of $0.11).
