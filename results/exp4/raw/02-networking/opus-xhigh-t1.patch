@@ -1,0 +1,688 @@
+diff --git a/Sources/TMDBApp/Networking/.gitkeep b/Sources/TMDBApp/Networking/.gitkeep
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/Sources/TMDBApp/Networking/APIConfiguration.swift b/Sources/TMDBApp/Networking/APIConfiguration.swift
+new file mode 100644
+index 0000000..7f172af
+--- /dev/null
++++ b/Sources/TMDBApp/Networking/APIConfiguration.swift
+@@ -0,0 +1,38 @@
++import Foundation
++
++/// Credentials and base URL used to build TMDB requests.
++///
++/// The API key is never hard-coded: use `load(environment:bundle:)` to read it from the
++/// `TMDB_API_KEY` environment variable or the `TMDB_API_KEY` Info.plist key.
++struct APIConfiguration: Equatable, Sendable {
++    /// Name of both the environment variable and the Info.plist key holding the API key.
++    static let apiKeyName = "TMDB_API_KEY"
++
++    let apiKey: String
++    let baseURL: URL
++
++    init(apiKey: String, baseURL: URL = TMDBApp.apiBaseURL) {
++        self.apiKey = apiKey
++        self.baseURL = baseURL
++    }
++
++    /// Reads the API key from `environment`, falling back to `bundle`'s Info.plist.
++    ///
++    /// Values are trimmed; an empty or whitespace-only value counts as absent.
++    /// - Throws: `APIError.missingAPIKey` when neither source has a non-empty key.
++    static func load(
++        environment: [String: String] = ProcessInfo.processInfo.environment,
++        bundle: Bundle = .main
++    ) throws -> APIConfiguration {
++        let candidates = [
++            environment[apiKeyName],
++            bundle.object(forInfoDictionaryKey: apiKeyName) as? String,
++        ]
++        for candidate in candidates {
++            if let key = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty {
++                return APIConfiguration(apiKey: key)
++            }
++        }
++        throw APIError.missingAPIKey
++    }
++}
+diff --git a/Sources/TMDBApp/Networking/APIError.swift b/Sources/TMDBApp/Networking/APIError.swift
+new file mode 100644
+index 0000000..16e0b8f
+--- /dev/null
++++ b/Sources/TMDBApp/Networking/APIError.swift
+@@ -0,0 +1,39 @@
++import Foundation
++
++/// Every failure `HTTPClient.send(_:as:)` can report.
++enum APIError: Error {
++    /// The response was not an HTTP response.
++    case invalidResponse
++    /// Non-2xx status. `message` is TMDB's `status_message` when the body contains one.
++    case httpStatus(code: Int, message: String?)
++    /// A 2xx body that could not be decoded into the requested type.
++    case decoding(Error)
++    /// The request never produced a response (offline, timeout, cancelled, bad URL…).
++    case transport(Error)
++    /// No API key in the environment or Info.plist (or an empty key was configured).
++    case missingAPIKey
++}
++
++extension APIError: LocalizedError {
++    var errorDescription: String? {
++        switch self {
++        case .invalidResponse:
++            return "The server returned an invalid response."
++        case let .httpStatus(code, message):
++            return message ?? "The server returned HTTP status \(code)."
++        case .decoding:
++            return "The server response could not be read."
++        case let .transport(error):
++            return error.localizedDescription
++        case .missingAPIKey:
++            return "No TMDB API key found. Set TMDB_API_KEY in the environment or Info.plist."
++        }
++    }
++}
++
++/// Error body TMDB returns with non-2xx responses, e.g.
++/// `{"status_code": 7, "status_message": "Invalid API key…", "success": false}`.
++struct TMDBErrorResponse: Decodable, Sendable {
++    let statusCode: Int?
++    let statusMessage: String?
++}
+diff --git a/Sources/TMDBApp/Networking/Endpoint.swift b/Sources/TMDBApp/Networking/Endpoint.swift
+new file mode 100644
+index 0000000..502f2d0
+--- /dev/null
++++ b/Sources/TMDBApp/Networking/Endpoint.swift
+@@ -0,0 +1,73 @@
++import Foundation
++
++/// TMDB API endpoints used by the app.
++enum Endpoint: Equatable, Sendable {
++    case popular(page: Int)
++    case search(query: String, page: Int)
++    case movieDetail(id: Int)
++    case credits(movieID: Int)
++
++    static let language = "en-US"
++
++    /// Path appended to `APIConfiguration.baseURL`.
++    var path: String {
++        switch self {
++        case .popular: return "/movie/popular"
++        case .search: return "/search/movie"
++        case let .movieDetail(id): return "/movie/\(id)"
++        case let .credits(movieID): return "/movie/\(movieID)/credits"
++        }
++    }
++
++    /// Endpoint-specific query items (excludes `api_key` and `language`).
++    var queryItems: [URLQueryItem] {
++        switch self {
++        case let .popular(page):
++            return [URLQueryItem(name: "page", value: String(page))]
++        case let .search(query, page):
++            return [URLQueryItem(name: "query", value: query), URLQueryItem(name: "page", value: String(page))]
++        case .movieDetail, .credits:
++            return []
++        }
++    }
++
++    /// Builds a GET request for this endpoint, adding `api_key` and `language` query items.
++    /// - Throws: `APIError.missingAPIKey` if the configuration's key is empty;
++    ///   `APIError.transport(URLError(.badURL))` if the URL cannot be built.
++    func urlRequest(configuration: APIConfiguration) throws -> URLRequest {
++        guard !configuration.apiKey.isEmpty else { throw APIError.missingAPIKey }
++        guard var components = URLComponents(url: configuration.baseURL, resolvingAgainstBaseURL: false) else {
++            throw APIError.transport(URLError(.badURL))
++        }
++
++        let basePath = components.percentEncodedPath.hasSuffix("/")
++            ? String(components.percentEncodedPath.dropLast())
++            : components.percentEncodedPath
++        components.percentEncodedPath = basePath + path
++
++        let items = [
++            URLQueryItem(name: "api_key", value: configuration.apiKey),
++            URLQueryItem(name: "language", value: Self.language),
++        ] + queryItems
++        components.percentEncodedQueryItems = items.map {
++            URLQueryItem(name: Self.percentEncode($0.name), value: $0.value.map(Self.percentEncode))
++        }
++
++        guard let url = components.url else { throw APIError.transport(URLError(.badURL)) }
++        var request = URLRequest(url: url)
++        request.httpMethod = "GET"
++        request.setValue("application/json", forHTTPHeaderField: "Accept")
++        return request
++    }
++
++    /// RFC 3986 unreserved characters. Everything else, including `+`, `&` and `=`, is
++    /// percent-encoded so a search like "C++ & more" reaches TMDB unchanged.
++    private static let unreserved = CharacterSet(
++        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
++    )
++
++    private static func percentEncode(_ string: String) -> String {
++        // Only nil for strings with unpaired surrogates, which Swift `String` cannot hold.
++        string.addingPercentEncoding(withAllowedCharacters: unreserved) ?? string
++    }
++}
+diff --git a/Sources/TMDBApp/Networking/HTTPClient.swift b/Sources/TMDBApp/Networking/HTTPClient.swift
+new file mode 100644
+index 0000000..51ddbea
+--- /dev/null
++++ b/Sources/TMDBApp/Networking/HTTPClient.swift
+@@ -0,0 +1,8 @@
++import Foundation
++
++/// Sends TMDB requests and decodes their responses.
++///
++/// Implementations throw `APIError` for every failure.
++protocol HTTPClient: Sendable {
++    func send<T: Decodable>(_ endpoint: Endpoint, as type: T.Type) async throws -> T
++}
+diff --git a/Sources/TMDBApp/Networking/TMDBClient.swift b/Sources/TMDBApp/Networking/TMDBClient.swift
+new file mode 100644
+index 0000000..2275876
+--- /dev/null
++++ b/Sources/TMDBApp/Networking/TMDBClient.swift
+@@ -0,0 +1,47 @@
++import Foundation
++
++/// `HTTPClient` for the TMDB v3 API, backed by an injected `URLSession`.
++struct TMDBClient: HTTPClient {
++    private let session: URLSession
++    private let configurationProvider: @Sendable () throws -> APIConfiguration
++
++    /// - Parameter configuration: Fixed configuration. When nil, `APIConfiguration.load()`
++    ///   is called on each request, so a key added later is picked up.
++    init(session: URLSession = .shared, configuration: APIConfiguration? = nil) {
++        if let configuration {
++            self.init(session: session, configurationProvider: { configuration })
++        } else {
++            self.init(session: session, configurationProvider: { try APIConfiguration.load() })
++        }
++    }
++
++    /// - Parameter configurationProvider: Called once per request; should throw `APIError`.
++    init(session: URLSession, configurationProvider: @escaping @Sendable () throws -> APIConfiguration) {
++        self.session = session
++        self.configurationProvider = configurationProvider
++    }
++
++    func send<T: Decodable>(_ endpoint: Endpoint, as type: T.Type) async throws -> T {
++        let request = try endpoint.urlRequest(configuration: configurationProvider())
++
++        let data: Data
++        let response: URLResponse
++        do {
++            (data, response) = try await session.data(for: request)
++        } catch {
++            throw APIError.transport(error)
++        }
++
++        guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
++        guard (200..<300).contains(http.statusCode) else {
++            let body = try? JSONDecoder.tmdb.decode(TMDBErrorResponse.self, from: data)
++            throw APIError.httpStatus(code: http.statusCode, message: body?.statusMessage)
++        }
++
++        do {
++            return try JSONDecoder.tmdb.decode(T.self, from: data)
++        } catch {
++            throw APIError.decoding(error)
++        }
++    }
++}
+diff --git a/Tests/TMDBAppTests/APIConfigurationTests.swift b/Tests/TMDBAppTests/APIConfigurationTests.swift
+new file mode 100644
+index 0000000..03abeb3
+--- /dev/null
++++ b/Tests/TMDBAppTests/APIConfigurationTests.swift
+@@ -0,0 +1,67 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@Suite("APIConfiguration")
++struct APIConfigurationTests {
++    /// Runs `body` with a throwaway on-disk bundle whose Info.plist is `info`.
++    private func withBundle(info: [String: String], _ body: (Bundle) throws -> Void) throws {
++        let root = FileManager.default.temporaryDirectory
++            .appendingPathComponent("TMDBAppTests-\(UUID().uuidString).bundle")
++        defer { try? FileManager.default.removeItem(at: root) }
++        #if os(macOS)
++        let plistDirectory = root.appendingPathComponent("Contents")
++        #else
++        let plistDirectory = root
++        #endif
++        try FileManager.default.createDirectory(at: plistDirectory, withIntermediateDirectories: true)
++        let plist = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
++        try plist.write(to: plistDirectory.appendingPathComponent("Info.plist"))
++        try body(try #require(Bundle(url: root)))
++    }
++
++    @Test func defaultsToTMDBBaseURL() {
++        let configuration = APIConfiguration(apiKey: "k")
++        #expect(configuration.apiKey == "k")
++        #expect(configuration.baseURL == TMDBApp.apiBaseURL)
++    }
++
++    @Test func environmentTakesPrecedenceOverInfoPlist() throws {
++        try withBundle(info: ["TMDB_API_KEY": "plist-key"]) { bundle in
++            let configuration = try APIConfiguration.load(environment: ["TMDB_API_KEY": "env-key"], bundle: bundle)
++            #expect(configuration.apiKey == "env-key")
++            #expect(configuration.baseURL == TMDBApp.apiBaseURL)
++        }
++    }
++
++    @Test("Falls back to Info.plist when the environment has no usable key",
++          arguments: [nil, "", "  \n"] as [String?])
++    func fallsBackToInfoPlist(environmentValue: String?) throws {
++        try withBundle(info: ["TMDB_API_KEY": "plist-key"]) { bundle in
++            let environment = environmentValue.map { ["TMDB_API_KEY": $0] } ?? [:]
++            let configuration = try APIConfiguration.load(environment: environment, bundle: bundle)
++            #expect(configuration.apiKey == "plist-key")
++        }
++    }
++
++    @Test func trimsWhitespace() throws {
++        try withBundle(info: [:]) { bundle in
++            let configuration = try APIConfiguration.load(environment: ["TMDB_API_KEY": " env-key\n"], bundle: bundle)
++            #expect(configuration.apiKey == "env-key")
++        }
++    }
++
++    @Test("Throws missingAPIKey when neither source has a key",
++          arguments: [[:], ["TMDB_API_KEY": ""]] as [[String: String]])
++    func throwsWhenNoKey(info: [String: String]) throws {
++        try withBundle(info: info) { bundle in
++            let error = try #require(throws: APIError.self) {
++                try APIConfiguration.load(environment: ["TMDB_API_KEY": "", "OTHER": "x"], bundle: bundle)
++            }
++            guard case .missingAPIKey = error else {
++                Issue.record("Expected .missingAPIKey, got \(error)")
++                return
++            }
++        }
++    }
++}
+diff --git a/Tests/TMDBAppTests/EndpointTests.swift b/Tests/TMDBAppTests/EndpointTests.swift
+new file mode 100644
+index 0000000..89efe8f
+--- /dev/null
++++ b/Tests/TMDBAppTests/EndpointTests.swift
+@@ -0,0 +1,79 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@Suite("Endpoint")
++struct EndpointTests {
++    private let configuration = APIConfiguration(apiKey: "test-key")
++
++    private func components(of request: URLRequest) throws -> URLComponents {
++        let url = try #require(request.url)
++        return try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
++    }
++
++    /// Query items as sorted `name=value` strings, so duplicates and order-independence are both checked.
++    private func sortedPairs(_ items: [URLQueryItem]?) -> [String] {
++        (items ?? []).map { "\($0.name)=\($0.value ?? "<nil>")" }.sorted()
++    }
++
++    static let cases: [(endpoint: Endpoint, path: String, items: [String: String])] = [
++        (.popular(page: 2), "/3/movie/popular", ["page": "2"]),
++        (.search(query: "Inception", page: 3), "/3/search/movie", ["query": "Inception", "page": "3"]),
++        (.movieDetail(id: 27205), "/3/movie/27205", [:]),
++        (.credits(movieID: 27205), "/3/movie/27205/credits", [:]),
++    ]
++
++    @Test("Builds path and query items", arguments: cases)
++    func buildsRequest(endpoint: Endpoint, path: String, items: [String: String]) throws {
++        let request = try endpoint.urlRequest(configuration: configuration)
++        #expect(request.httpMethod == "GET")
++        #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
++
++        let components = try components(of: request)
++        #expect(components.scheme == "https")
++        #expect(components.host == "api.themoviedb.org")
++        #expect(components.path == path)
++
++        let expected = items.merging(["api_key": "test-key", "language": "en-US"]) { $1 }
++        #expect(sortedPairs(components.queryItems) == expected.map { "\($0.key)=\($0.value)" }.sorted())
++    }
++
++    @Test func searchQueryIsPercentEncoded() throws {
++        let query = "C++ & Amélie: a=b?"
++        let request = try Endpoint.search(query: query, page: 1).urlRequest(configuration: configuration)
++        let components = try components(of: request)
++
++        // `+`, `&`, `=` must be escaped or TMDB would read a space or a new parameter.
++        let encodedQuery = try #require(components.percentEncodedQuery)
++        #expect(encodedQuery.contains("query=C%2B%2B%20%26%20Am%C3%A9lie%3A%20a%3Db%3F"))
++        #expect(components.queryItems?.first(where: { $0.name == "query" })?.value == query)
++    }
++
++    @Test func appendsPathToCustomBaseURL() throws {
++        for base in ["https://example.com/api/3", "https://example.com/api/3/"] {
++            let configuration = APIConfiguration(apiKey: "k", baseURL: try #require(URL(string: base)))
++            let request = try Endpoint.credits(movieID: 7).urlRequest(configuration: configuration)
++            let components = try components(of: request)
++            #expect(components.host == "example.com")
++            #expect(components.path == "/api/3/movie/7/credits")
++        }
++    }
++
++    @Test func emptyAPIKeyThrowsMissingAPIKey() throws {
++        let configuration = APIConfiguration(apiKey: "")
++        let error = try #require(throws: APIError.self) {
++            try Endpoint.popular(page: 1).urlRequest(configuration: configuration)
++        }
++        guard case .missingAPIKey = error else {
++            Issue.record("Expected .missingAPIKey, got \(error)")
++            return
++        }
++    }
++
++    @Test func equatable() {
++        #expect(Endpoint.popular(page: 1) == .popular(page: 1))
++        #expect(Endpoint.popular(page: 1) != .popular(page: 2))
++        #expect(Endpoint.search(query: "a", page: 1) != .search(query: "b", page: 1))
++        #expect(Endpoint.movieDetail(id: 1) != .credits(movieID: 1))
++    }
++}
+diff --git a/Tests/TMDBAppTests/MockURLProtocol.swift b/Tests/TMDBAppTests/MockURLProtocol.swift
+new file mode 100644
+index 0000000..ea31012
+--- /dev/null
++++ b/Tests/TMDBAppTests/MockURLProtocol.swift
+@@ -0,0 +1,87 @@
++import Foundation
++
++/// `URLProtocol` that answers requests with canned responses, so tests never touch the network.
++///
++/// Swift Testing runs tests in parallel, so there is no shared global handler: each session
++/// from `makeSession(_:)` gets its own handler, found through a per-session token header.
++final class MockURLProtocol: URLProtocol {
++    typealias Handler = @Sendable (URLRequest) throws -> (URLResponse, Data)
++
++    private static let tokenHeader = "X-MockURLProtocol-Token"
++    private static let handlers = Locked<[String: Handler]>([:])
++
++    /// An ephemeral session whose every request is answered by `handler`.
++    static func makeSession(_ handler: @escaping Handler) -> URLSession {
++        let token = UUID().uuidString
++        handlers.withLock { $0[token] = handler }
++        let configuration = URLSessionConfiguration.ephemeral
++        configuration.protocolClasses = [MockURLProtocol.self]
++        configuration.httpAdditionalHeaders = [tokenHeader: token]
++        return URLSession(configuration: configuration)
++    }
++
++    /// An ephemeral session that answers every request with `body` and `statusCode`,
++    /// appending each request it receives to `requests`.
++    static func makeSession(
++        statusCode: Int = 200,
++        body: Data,
++        recordingInto requests: Locked<[URLRequest]>? = nil
++    ) -> URLSession {
++        makeSession { request in
++            requests?.withLock { $0.append(request) }
++            guard let url = request.url,
++                  let response = HTTPURLResponse(url: url, statusCode: statusCode, httpVersion: "HTTP/1.1",
++                                                 headerFields: ["Content-Type": "application/json"]) else {
++                throw URLError(.badURL)
++            }
++            return (response, body)
++        }
++    }
++
++    /// Same as `makeSession(statusCode:body:recordingInto:)`, serving a JSON fixture.
++    static func makeSession(
++        statusCode: Int = 200,
++        fixture: String,
++        recordingInto requests: Locked<[URLRequest]>? = nil
++    ) throws -> URLSession {
++        makeSession(statusCode: statusCode, body: try Fixture.data(fixture), recordingInto: requests)
++    }
++
++    override class func canInit(with request: URLRequest) -> Bool { true }
++
++    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
++
++    override func startLoading() {
++        guard let token = request.value(forHTTPHeaderField: Self.tokenHeader),
++              let handler = Self.handlers.withLock({ $0[token] }) else {
++            client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
++            return
++        }
++        do {
++            let (response, data) = try handler(request)
++            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
++            client?.urlProtocol(self, didLoad: data)
++            client?.urlProtocolDidFinishLoading(self)
++        } catch {
++            client?.urlProtocol(self, didFailWithError: error)
++        }
++    }
++
++    override func stopLoading() {}
++}
++
++/// A value guarded by a lock, for state shared between a test and `@Sendable` closures.
++final class Locked<Value>: @unchecked Sendable {
++    private let lock = NSLock()
++    private var value: Value
++
++    init(_ value: Value) { self.value = value }
++
++    func withLock<Result>(_ body: (inout Value) throws -> Result) rethrows -> Result {
++        lock.lock()
++        defer { lock.unlock() }
++        return try body(&value)
++    }
++
++    var current: Value { withLock { $0 } }
++}
+diff --git a/Tests/TMDBAppTests/TMDBClientTests.swift b/Tests/TMDBAppTests/TMDBClientTests.swift
+new file mode 100644
+index 0000000..7696379
+--- /dev/null
++++ b/Tests/TMDBAppTests/TMDBClientTests.swift
+@@ -0,0 +1,193 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@Suite("TMDBClient")
++struct TMDBClientTests {
++    private let configuration = APIConfiguration(apiKey: "test-key")
++
++    private func queryValue(_ name: String, in request: URLRequest?) -> String? {
++        guard let url = request?.url else { return nil }
++        return URLComponents(url: url, resolvingAgainstBaseURL: false)?
++            .queryItems?.first(where: { $0.name == name })?.value
++    }
++
++    // MARK: - Success
++
++    @Test func decodesPopularResponse() async throws {
++        let requests = Locked<[URLRequest]>([])
++        let session = try MockURLProtocol.makeSession(fixture: "popular_page1", recordingInto: requests)
++        let client = TMDBClient(session: session, configuration: configuration)
++
++        let page = try await client.send(.popular(page: 1), as: PagedResponse<Movie>.self)
++
++        #expect(page.page == 1)
++        #expect(page.totalPages == 2)
++        #expect(page.results.count == 5)
++        #expect(page.results.first?.id == 27205)
++
++        let request = try #require(requests.current.only)
++        #expect(request.httpMethod == "GET")
++        #expect(request.url?.path == "/3/movie/popular")
++        #expect(queryValue("api_key", in: request) == "test-key")
++        #expect(queryValue("language", in: request) == "en-US")
++        #expect(queryValue("page", in: request) == "1")
++    }
++
++    @Test func decodesSearchDetailAndCredits() async throws {
++        let search = try await TMDBClient(session: MockURLProtocol.makeSession(fixture: "search_inception"),
++                                          configuration: configuration)
++            .send(.search(query: "Inception", page: 1), as: PagedResponse<Movie>.self)
++        #expect(search.results.contains(where: { $0.title == "Inception" }))
++
++        let empty = try await TMDBClient(session: MockURLProtocol.makeSession(fixture: "search_empty"),
++                                         configuration: configuration)
++            .send(.search(query: "zzzz", page: 1), as: PagedResponse<Movie>.self)
++        #expect(empty.results.isEmpty)
++        #expect(empty.totalResults == 0)
++
++        let detail = try await TMDBClient(session: MockURLProtocol.makeSession(fixture: "movie_detail_27205"),
++                                          configuration: configuration)
++            .send(.movieDetail(id: 27205), as: MovieDetail.self)
++        #expect(detail.id == 27205)
++        #expect(detail.runtime == 148)
++
++        let credits = try await TMDBClient(session: MockURLProtocol.makeSession(fixture: "movie_credits_27205"),
++                                           configuration: configuration)
++            .send(.credits(movieID: 27205), as: Credits.self)
++        #expect(credits.cast.first?.name == "Leonardo DiCaprio")
++    }
++
++    // MARK: - Errors
++
++    @Test func http401ParsesTMDBStatusMessage() async throws {
++        let session = try MockURLProtocol.makeSession(statusCode: 401, fixture: "error_401")
++        let client = TMDBClient(session: session, configuration: configuration)
++
++        let error = try await #require(throws: APIError.self) {
++            try await client.send(.popular(page: 1), as: PagedResponse<Movie>.self)
++        }
++        guard case let .httpStatus(code, message) = error else {
++            Issue.record("Expected .httpStatus, got \(error)")
++            return
++        }
++        #expect(code == 401)
++        #expect(message == "Invalid API key: You must be granted a valid key.")
++        #expect(error.localizedDescription == "Invalid API key: You must be granted a valid key.")
++    }
++
++    @Test func httpErrorWithoutTMDBBodyHasNilMessage() async throws {
++        let session = MockURLProtocol.makeSession(statusCode: 503, body: Data("<html>Service Unavailable</html>".utf8))
++        let client = TMDBClient(session: session, configuration: configuration)
++
++        let error = try await #require(throws: APIError.self) {
++            try await client.send(.movieDetail(id: 1), as: MovieDetail.self)
++        }
++        guard case let .httpStatus(code, message) = error else {
++            Issue.record("Expected .httpStatus, got \(error)")
++            return
++        }
++        #expect(code == 503)
++        #expect(message == nil)
++    }
++
++    @Test func decodingFailureIsWrapped() async throws {
++        // A valid 200 response whose shape doesn't match the requested type.
++        let session = try MockURLProtocol.makeSession(fixture: "movie_detail_27205")
++        let client = TMDBClient(session: session, configuration: configuration)
++
++        let error = try await #require(throws: APIError.self) {
++            try await client.send(.movieDetail(id: 27205), as: PagedResponse<Movie>.self)
++        }
++        guard case let .decoding(underlying) = error else {
++            Issue.record("Expected .decoding, got \(error)")
++            return
++        }
++        #expect(underlying is DecodingError)
++    }
++
++    @Test func transportFailureIsWrapped() async throws {
++        let session = MockURLProtocol.makeSession { _ in throw URLError(.notConnectedToInternet) }
++        let client = TMDBClient(session: session, configuration: configuration)
++
++        let error = try await #require(throws: APIError.self) {
++            try await client.send(.popular(page: 1), as: PagedResponse<Movie>.self)
++        }
++        guard case let .transport(underlying) = error else {
++            Issue.record("Expected .transport, got \(error)")
++            return
++        }
++        #expect((underlying as? URLError)?.code == .notConnectedToInternet)
++    }
++
++    @Test func nonHTTPResponseIsInvalidResponse() async throws {
++        let session = MockURLProtocol.makeSession { request in
++            let response = URLResponse(url: request.url!, mimeType: "application/json",
++                                       expectedContentLength: 2, textEncodingName: nil)
++            return (response, Data("{}".utf8))
++        }
++        let client = TMDBClient(session: session, configuration: configuration)
++
++        let error = try await #require(throws: APIError.self) {
++            try await client.send(.popular(page: 1), as: PagedResponse<Movie>.self)
++        }
++        guard case .invalidResponse = error else {
++            Issue.record("Expected .invalidResponse, got \(error)")
++            return
++        }
++    }
++
++    // MARK: - Configuration loading
++
++    @Test func configurationProviderIsCalledOnEachRequest() async throws {
++        let requests = Locked<[URLRequest]>([])
++        let session = try MockURLProtocol.makeSession(fixture: "movie_detail_27205", recordingInto: requests)
++        let environment = Locked<[String: String]>([:])
++        let client = TMDBClient(session: session, configurationProvider: {
++            let bundle = Bundle(for: MockURLProtocol.self)  // never holds TMDB_API_KEY
++            return try APIConfiguration.load(environment: environment.current, bundle: bundle)
++        })
++
++        // No key yet: fails before any request is sent.
++        let error = try await #require(throws: APIError.self) {
++            try await client.send(.movieDetail(id: 27205), as: MovieDetail.self)
++        }
++        guard case .missingAPIKey = error else {
++            Issue.record("Expected .missingAPIKey, got \(error)")
++            return
++        }
++        #expect(requests.current.isEmpty)
++
++        // Key becomes available: the same client picks it up without being rebuilt.
++        environment.withLock { $0["TMDB_API_KEY"] = "late-key" }
++        _ = try await client.send(.movieDetail(id: 27205), as: MovieDetail.self)
++        #expect(queryValue("api_key", in: requests.current.only) == "late-key")
++    }
++
++    @Test func nilConfigurationLoadsFromEnvironmentAndMainBundle() async throws {
++        let requests = Locked<[URLRequest]>([])
++        let session = try MockURLProtocol.makeSession(fixture: "movie_detail_27205", recordingInto: requests)
++        let client = TMDBClient(session: session)
++
++        // The outcome depends on the machine's TMDB_API_KEY; either way the mock session
++        // keeps the request off the network.
++        if let expected = try? APIConfiguration.load() {
++            _ = try await client.send(.movieDetail(id: 27205), as: MovieDetail.self)
++            #expect(queryValue("api_key", in: requests.current.only) == expected.apiKey)
++        } else {
++            let error = try await #require(throws: APIError.self) {
++                try await client.send(.movieDetail(id: 27205), as: MovieDetail.self)
++            }
++            guard case .missingAPIKey = error else {
++                Issue.record("Expected .missingAPIKey, got \(error)")
++                return
++            }
++            #expect(requests.current.isEmpty)
++        }
++    }
++}
++
++private extension Array {
++    /// The single element, or nil if the array doesn't have exactly one.
++    var only: Element? { count == 1 ? first : nil }
++}

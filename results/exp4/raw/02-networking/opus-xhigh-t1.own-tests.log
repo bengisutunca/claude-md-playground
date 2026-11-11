@@ -1,0 +1,89 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+Test Suite 'All tests' started at 2026-11-10 22:33:48.313.
+Test Suite 'All tests' passed at 2026-11-10 22:33:48.313.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "APIConfiguration" started.
+◇ Suite "Model decoding" started.
+◇ Suite "TMDBClient" started.
+◇ Suite "Smoke" started.
+◇ Suite "Endpoint" started.
+◇ Test popularPage2EmptyReleaseDate() started.
+◇ Test "Throws missingAPIKey when neither source has a key" started.
+◇ Test movieDetail() started.
+◇ Test popularPage1() started.
+◇ Test movieCredits() started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test nilConfigurationLoadsFromEnvironmentAndMainBundle() started.
+◇ Test defaultsToTMDBBaseURL() started.
+◇ Test decodesSearchDetailAndCredits() started.
+◇ Test trimsWhitespace() started.
+◇ Test "Falls back to Info.plist when the environment has no usable key" started.
+◇ Test configurationProviderIsCalledOnEachRequest() started.
+◇ Test transportFailureIsWrapped() started.
+◇ Test decodesPopularResponse() started.
+◇ Test baseURLsAreValid() started.
+◇ Test environmentTakesPrecedenceOverInfoPlist() started.
+◇ Test httpErrorWithoutTMDBBodyHasNilMessage() started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test nonHTTPResponseIsInvalidResponse() started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test case passing 1 argument info → ["TMDB_API_KEY": ""] to "Throws missingAPIKey when neither source has a key" started.
+◇ Test http401ParsesTMDBStatusMessage() started.
+◇ Test case passing 1 argument info → [:] to "Throws missingAPIKey when neither source has a key" started.
+◇ Test decodingFailureIsWrapped() started.
+◇ Test case passing 1 argument environmentValue → nil to "Falls back to Info.plist when the environment has no usable key" started.
+◇ Test appendsPathToCustomBaseURL() started.
+◇ Test case passing 1 argument environmentValue → "" to "Falls back to Info.plist when the environment has no usable key" started.
+◇ Test emptyAPIKeyThrowsMissingAPIKey() started.
+◇ Test equatable() started.
+◇ Test searchQueryIsPercentEncoded() started.
+◇ Test "Builds path and query items" started.
+◇ Test case passing 1 argument environmentValue → "  
+" to "Falls back to Info.plist when the environment has no usable key" started.
+✔ Test ratingTextUsesOneDecimal() passed after 0.003 seconds.
+✔ Test defaultsToTMDBBaseURL() passed after 0.003 seconds.
+✔ Test movieCredits() passed after 0.003 seconds.
+✔ Test trimsWhitespace() passed after 0.003 seconds.
+✔ Test "Throws missingAPIKey when neither source has a key" with 2 test cases passed after 0.003 seconds.
+✔ Test baseURLsAreValid() passed after 0.003 seconds.
+✔ Test movieDetail() passed after 0.003 seconds.
+✔ Test popularPage1() passed after 0.003 seconds.
+◇ Test case passing 3 arguments endpoint → .credits(movieID: 27205), path → "/3/movie/27205/credits", items → [:] to "Builds path and query items" started.
+◇ Test case passing 3 arguments endpoint → .movieDetail(id: 27205), path → "/3/movie/27205", items → [:] to "Builds path and query items" started.
+✔ Test popularPage2EmptyReleaseDate() passed after 0.003 seconds.
+✔ Test nilConfigurationLoadsFromEnvironmentAndMainBundle() passed after 0.003 seconds.
+◇ Test case passing 3 arguments endpoint → .popular(page: 2), path → "/3/movie/popular", items → ["page": "2"] to "Builds path and query items" started.
+✔ Test environmentTakesPrecedenceOverInfoPlist() passed after 0.003 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.003 seconds.
+◇ Test case passing 3 arguments endpoint → .search(query: "Inception", page: 3), path → "/3/search/movie", items → ["page": "3", "query": "Inception"] to "Builds path and query items" started.
+✔ Test "Falls back to Info.plist when the environment has no usable key" with 3 test cases passed after 0.003 seconds.
+✔ Test appendsPathToCustomBaseURL() passed after 0.001 seconds.
+✔ Test equatable() passed after 0.001 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.003 seconds.
+✔ Test emptyAPIKeyThrowsMissingAPIKey() passed after 0.001 seconds.
+✔ Suite "Smoke" passed after 0.004 seconds.
+✔ Suite "Model decoding" passed after 0.004 seconds.
+✔ Suite "APIConfiguration" passed after 0.004 seconds.
+✔ Test searchQueryIsPercentEncoded() passed after 0.001 seconds.
+✔ Test "Builds path and query items" with 4 test cases passed after 0.001 seconds.
+✔ Suite "Endpoint" passed after 0.004 seconds.
+✔ Test nonHTTPResponseIsInvalidResponse() passed after 0.005 seconds.
+✔ Test configurationProviderIsCalledOnEachRequest() passed after 0.005 seconds.
+✔ Test decodesPopularResponse() passed after 0.005 seconds.
+✔ Test httpErrorWithoutTMDBBodyHasNilMessage() passed after 0.005 seconds.
+✔ Test transportFailureIsWrapped() passed after 0.005 seconds.
+✔ Test http401ParsesTMDBStatusMessage() passed after 0.005 seconds.
+✔ Test decodingFailureIsWrapped() passed after 0.005 seconds.
+✔ Test decodesSearchDetailAndCredits() passed after 0.005 seconds.
+✔ Suite "TMDBClient" passed after 0.005 seconds.
+✔ Test run with 27 tests in 5 suites passed after 0.006 seconds.

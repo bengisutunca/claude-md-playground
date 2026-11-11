@@ -1,0 +1,34 @@
+diff --git a/Sources/TMDBApp/Services/FavoritesStore.swift b/Sources/TMDBApp/Services/FavoritesStore.swift
+index 3d18991..6845c4e 100644
+--- a/Sources/TMDBApp/Services/FavoritesStore.swift
++++ b/Sources/TMDBApp/Services/FavoritesStore.swift
+@@ -40,6 +40,6 @@ struct UserDefaultsFavoritesStore: FavoritesStore {
+ 
+     private static func deduplicated(_ movies: [Movie]) -> [Movie] {
+         var seen = Set<Int>()
+-        return movies.filter { !seen.insert($0.id).inserted }
++        return movies.filter { seen.insert($0.id).inserted }
+     }
+ }
+diff --git a/Tests/TMDBAppTests/FavoritesTests.swift b/Tests/TMDBAppTests/FavoritesTests.swift
+index 24574fe..487324a 100644
+--- a/Tests/TMDBAppTests/FavoritesTests.swift
++++ b/Tests/TMDBAppTests/FavoritesTests.swift
+@@ -52,6 +52,17 @@ struct FavoritesTests {
+         #expect(second.favorites[0].releaseDate == all[0].releaseDate)
+     }
+ 
++    /// Regression: de-duplication on save must keep the first occurrence of each id, not drop
++    /// every distinct movie, or a freshly launched store (and the Favorites tab) comes back empty.
++    @Test func distinctMoviesSurviveRelaunch() throws {
++        let suite = TestSuite(); defer { suite.cleanUp() }
++        let all = try movies()
++        suite.makeStore().save([all[1], all[0], all[2], all[0]])
++
++        let relaunched = suite.makeStore().load()
++        #expect(relaunched == [all[1], all[0], all[2]])
++    }
++
+     @Test func insertionOrderKept() throws {
+         let suite = TestSuite(); defer { suite.cleanUp() }
+         let all = try movies()

@@ -1,0 +1,119 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.09s)
+Test Suite 'All tests' started at 2026-11-10 22:40:47.041.
+Test Suite 'All tests' passed at 2026-11-10 22:40:47.041.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Smoke" started.
+◇ Suite "Networking" started.
+◇ Suite "Model decoding" started.
+◇ Suite "MockMovieService" started.
+◇ Suite "ImageURLBuilder" started.
+◇ Suite "TMDBMovieService" started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test baseURLsAreValid() started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test recordsCallsInOrder() started.
+◇ Test configuredErrorFailsEveryMethodAndIsStillRecorded() started.
+◇ Test defaultsToFixtures() started.
+◇ Test movieDetail() started.
+◇ Test customBaseURLWithTrailingSlash() started.
+◇ Test leadingSlashIsOptional() started.
+◇ Test popularPage2EmptyReleaseDate() started.
+◇ Test popularPage1() started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test movieCredits() started.
+◇ Test missingPathGivesNil(_:) started.
+◇ Test buildsFullURL() started.
+◇ Test sizeRawValues() started.
+◇ Test defaultBaseURLIsTMDBImageBase() started.
+◇ Test passesAPIErrorThroughUnchanged() started.
+◇ Test stubsOverrideFixtures() started.
+◇ Test searchDecodesResults() started.
+◇ Test unknownFixtureThrows() started.
+◇ Test sizeIsAPathSegment(_:) started.
+◇ Test propagatesClientErrors(_:) started.
+◇ Test creditsDecodes() started.
+◇ Test searchSendsQueryAsGiven() started.
+◇ Test sendsOneMatchingRequest(_:) started.
+◇ Test popularDecodesPage() started.
+◇ Test detailDecodes() started.
+◇ Test successDecodes() started.
+◇ Test fixturePosterPaths() started.
+◇ Test case passing 1 argument path → nil to missingPathGivesNil(_:) started.
+◇ Test case passing 1 argument path → "" to missingPathGivesNil(_:) started.
+◇ Test case passing 1 argument path → "   " to missingPathGivesNil(_:) started.
+◇ Test case passing 1 argument path → "/" to missingPathGivesNil(_:) started.
+✔ Test baseURLsAreValid() passed after 0.001 seconds.
+◇ Test case passing 1 argument size → .w185 to sizeIsAPathSegment(_:) started.
+◇ Test case passing 1 argument size → .w342 to sizeIsAPathSegment(_:) started.
+◇ Test case passing 1 argument size → .w780 to sizeIsAPathSegment(_:) started.
+◇ Test case passing 1 argument call → popular to propagatesClientErrors(_:) started.
+◇ Test case passing 1 argument call → search to propagatesClientErrors(_:) started.
+◇ Test case passing 1 argument call → detail to propagatesClientErrors(_:) started.
+◇ Test case passing 1 argument call → credits to propagatesClientErrors(_:) started.
+◇ Test case passing 1 argument size → .original to sizeIsAPathSegment(_:) started.
+◇ Test case passing 1 argument call → popular to sendsOneMatchingRequest(_:) started.
+✔ Test customBaseURLWithTrailingSlash() passed after 0.002 seconds.
+✔ Test leadingSlashIsOptional() passed after 0.002 seconds.
+◇ Test case passing 1 argument call → detail to sendsOneMatchingRequest(_:) started.
+◇ Test case passing 1 argument call → search to sendsOneMatchingRequest(_:) started.
+◇ Test case passing 1 argument call → credits to sendsOneMatchingRequest(_:) started.
+✔ Test ratingTextUsesOneDecimal() passed after 0.002 seconds.
+✔ Test missingPathGivesNil(_:) with 4 test cases passed after 0.002 seconds.
+✔ Test sizeRawValues() passed after 0.002 seconds.
+✔ Test defaultBaseURLIsTMDBImageBase() passed after 0.002 seconds.
+✔ Test buildsFullURL() passed after 0.002 seconds.
+✔ Test passesAPIErrorThroughUnchanged() passed after 0.002 seconds.
+✔ Test configuredErrorFailsEveryMethodAndIsStillRecorded() passed after 0.002 seconds.
+✔ Test creditsDecodes() passed after 0.002 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.003 seconds.
+✔ Test movieCredits() passed after 0.002 seconds.
+✔ Test stubsOverrideFixtures() passed after 0.002 seconds.
+✔ Test popularPage2EmptyReleaseDate() passed after 0.002 seconds.
+✔ Test sizeIsAPathSegment(_:) with 4 test cases passed after 0.002 seconds.
+✔ Test searchDecodesResults() passed after 0.002 seconds.
+✔ Test popularPage1() passed after 0.002 seconds.
+✔ Test movieDetail() passed after 0.002 seconds.
+✔ Test searchSendsQueryAsGiven() passed after 0.002 seconds.
+✔ Test detailDecodes() passed after 0.002 seconds.
+✔ Test propagatesClientErrors(_:) with 4 test cases passed after 0.002 seconds.
+✔ Test popularDecodesPage() passed after 0.002 seconds.
+✔ Test defaultsToFixtures() passed after 0.003 seconds.
+✔ Test sendsOneMatchingRequest(_:) with 4 test cases passed after 0.002 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.003 seconds.
+✔ Suite "Smoke" passed after 0.003 seconds.
+✔ Test recordsCallsInOrder() passed after 0.003 seconds.
+✔ Test unknownFixtureThrows() passed after 0.002 seconds.
+✔ Suite "TMDBMovieService" passed after 0.003 seconds.
+✔ Suite "MockMovieService" passed after 0.003 seconds.
+✔ Suite "Model decoding" passed after 0.003 seconds.
+✔ Test fixturePosterPaths() passed after 0.002 seconds.
+✔ Suite "ImageURLBuilder" passed after 0.003 seconds.
+✔ Test successDecodes() passed after 0.003 seconds.
+◇ Test unauthorizedMapsToHTTPStatus() started.
+✔ Test unauthorizedMapsToHTTPStatus() passed after 0.001 seconds.
+◇ Test decodingFailure() started.
+✔ Test decodingFailure() passed after 0.001 seconds.
+◇ Test transportError() started.
+✔ Test transportError() passed after 0.001 seconds.
+◇ Test apiKeyResolution() started.
+✔ Test apiKeyResolution() passed after 0.001 seconds.
+◇ Test popularQuery() started.
+✔ Test popularQuery() passed after 0.001 seconds.
+◇ Test searchQuery() started.
+✔ Test searchQuery() passed after 0.001 seconds.
+◇ Test detailQuery() started.
+✔ Test detailQuery() passed after 0.001 seconds.
+◇ Test creditsQuery() started.
+✔ Test creditsQuery() passed after 0.001 seconds.
+✔ Suite "Networking" passed after 0.006 seconds.
+✔ Test run with 38 tests in 6 suites passed after 0.006 seconds.

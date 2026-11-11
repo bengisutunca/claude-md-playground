@@ -9,17 +9,20 @@ tokens and quality.
 
 ## Result
 
-**Caveman did not make building this app cheaper, in any configuration. Quality was the same everywhere.**
+**Whether caveman saves money depends on where you start. Quality was the same everywhere.**
 
-| vs plain Claude Code (Sonnet), 95% confidence interval | Cost per session |
-|---|---:|
-| caveman rules as `CLAUDE.md` | +3.8% [−1.0, +8.9] |
-| full caveman tool, Sonnet kept | +8.0% [+2.9, +13.2] |
-| full caveman tool with Auto model routing | +203% [+145, +275] |
+| Configuration | vs | Cost per session (95% CI) |
+|---|---|---:|
+| caveman rules as `CLAUDE.md` | Sonnet | +3.8% [−1.0, +8.9] |
+| full caveman tool, Sonnet kept | Sonnet | +8.0% [+2.9, +13.2] |
+| full caveman tool with Auto | Sonnet | +203% [+145, +275] |
+| full caveman tool, Opus xhigh kept | Opus xhigh | −13.4% [−27.9, +4.0] |
+| full caveman tool with Auto | Opus xhigh | **−48.6% [−56.4, −39.5]** |
 
-The rules shortened Claude's messages by 22%, but in a coding session most output is code and
-most cost is the agent re-reading files and context on every turn. The full tool's compression
-found nothing to compress in this project, and Auto moved almost every task from Sonnet to Opus.
+On Sonnet, caveman never saved: in a coding session most output is code, most cost is re-reading
+context, and Auto moved tasks up to Opus. Against Opus at xhigh effort, caveman's own baseline,
+caveman with Auto halved the cost, close to the 54% it reports, mostly by lowering Opus's effort.
+Its compression found nothing to compress in this project.
 Full write-up: **[results/REPORT.md](results/REPORT.md)**.
 
 ## Where the code is
@@ -37,20 +40,22 @@ Each step is a fresh headless Claude Code session.
 
 ## Experiments
 
-| | 1: chained | 2: rules as CLAUDE.md | 3: full caveman tool |
-|---|---|---|---|
-| Design | each branch builds on its own previous step | every task starts from the same reference commit in every arm | same as 2 |
-| caveman arm | rules in `CLAUDE.md` | rules in `CLAUDE.md` | `caveman wrap claude`, with and without Auto |
-| Tasks | 8 build steps | 8 build steps + 3 seeded bug fixes + 3 explain/review questions | same as 2 |
-| Repetitions | 1 | 3 per task and arm | 3 (Auto: 1) |
-| Quality check | the agent's own tests | 53 hidden acceptance tests | same as 2 |
-| Cost difference | +2.7% (≈ −10 to +25) | +3.8% [−1.0, +8.9] | +8.0% [+2.9, +13.2]; Auto +203% |
-| Results | [results/RESULTS.md](results/RESULTS.md) | [results/exp2/RESULTS.md](results/exp2/RESULTS.md) | [results/exp3/RESULTS.md](results/exp3/RESULTS.md) |
+| | 1: chained | 2: rules as CLAUDE.md | 3: full tool on Sonnet | 4: full tool on Opus xhigh |
+|---|---|---|---|---|
+| Baseline | Sonnet | Sonnet | Sonnet | Opus 5.5, `--effort xhigh` |
+| caveman arm | rules in `CLAUDE.md` | rules in `CLAUDE.md` | `caveman wrap claude`, with and without Auto | same, Opus xhigh kept, with and without Auto |
+| Design | each branch builds on its own previous step | every task starts from the same reference commit in every arm | same as 2 | same as 2 |
+| Tasks | 8 build steps | 8 build steps + 3 seeded bug fixes + 3 explain/review questions | same as 2 | same as 2 |
+| Repetitions | 1 | 3 per task and arm | 3 (Auto: 1) | 1 |
+| Quality check | the agent's own tests | 53 hidden acceptance tests | same as 2 | same as 2 |
+| Cost difference | +2.7% (≈ −10 to +25) | +3.8% [−1.0, +8.9] | +8.0% [+2.9, +13.2]; Auto +203% | −13.4% [−27.9, +4.0]; Auto −48.6% |
+| Results | [results/RESULTS.md](results/RESULTS.md) | [results/exp2/RESULTS.md](results/exp2/RESULTS.md) | [results/exp3/RESULTS.md](results/exp3/RESULTS.md) | [results/exp4/RESULTS.md](results/exp4/RESULTS.md) |
 
 Experiment 1 is realistic but too noisy to conclude anything: after a few steps the two
 branches work on different code. Experiment 2 removes that drift and repeats every task.
 Experiment 3 replaces the CLAUDE.md with the real caveman install (proxy, compression, voice),
 run per session with `caveman wrap`, plus an arm where caveman's Auto picks the model.
+Experiment 4 repeats experiment 3 from caveman's own baseline, Opus at xhigh effort.
 
 ## Layout
 
@@ -64,10 +69,11 @@ bench/
   setup.sh  run.sh  redo.sh  reset.sh  summarize.py
   exp2/                               experiment 2: tasks, hidden acceptance tests, run.py, calibrate.py
   exp3/                               experiment 3: runs the same tasks through `caveman wrap`
+  exp4/                               experiment 4: the exp 3 harness with Opus xhigh arms
 results/
   REPORT.md                           findings, method, limits
   run-1/  RESULTS.md                  experiment 1 data
-  exp2/  exp3/                        per session JSON, answer, patch, test logs
+  exp2/  exp3/  exp4/                 per session JSON, answer, patch, test logs
 ```
 
 ## Running it yourself (macOS)
@@ -85,6 +91,7 @@ python3 bench/exp2/run.py            # 14 tasks × 2 arms × 3 trials, resumable
 caveman disable claude
 python3 bench/exp3/run.py --arms baseline,caveman --trials 3
 python3 bench/exp3/run.py --arms caveman-auto --trials 1   # needs `caveman login`
+python3 bench/exp4/run.py --trials 1                       # Opus xhigh, with and without caveman
 ```
 
 Before running, rename `~/.claude/CLAUDE.md` if you have one and disable any caveman install;

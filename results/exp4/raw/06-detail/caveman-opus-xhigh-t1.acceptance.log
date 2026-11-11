@@ -1,0 +1,92 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Compiling TMDBAppTests Acceptance06.swift
+/Users/bengisutunca/Documents/GitHub/claude-md-playground-wt/exp4-caveman-opus-xhigh/Tests/TMDBAppTests/Acceptance06.swift:34:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+ 32 | 
+ 33 |     func popular(page: Int) async throws -> PagedResponse<Movie> {
+ 34 |         lock.lock(); _popularCalls.append(page); lock.unlock()
+    |              `- warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+ 35 |         if let popularError { throw popularError }
+ 36 |         guard let result = pages[page] else { throw URLError(.fileDoesNotExist) }
+
+Foundation.NSLock.lock:2:11: note: 'lock()' declared here
+1 | class NSLock {
+2 | open func lock()}
+  |           `- note: 'lock()' declared here
+3 | 
+
+/Users/bengisutunca/Documents/GitHub/claude-md-playground-wt/exp4-caveman-opus-xhigh/Tests/TMDBAppTests/Acceptance06.swift:34:55: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+ 32 | 
+ 33 |     func popular(page: Int) async throws -> PagedResponse<Movie> {
+ 34 |         lock.lock(); _popularCalls.append(page); lock.unlock()
+    |                                                       `- warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+ 35 |         if let popularError { throw popularError }
+ 36 |         guard let result = pages[page] else { throw URLError(.fileDoesNotExist) }
+
+Foundation.NSLock.unlock:2:11: note: 'unlock()' declared here
+1 | class NSLock {
+2 | open func unlock()}
+  |           `- note: 'unlock()' declared here
+3 | 
+
+/Users/bengisutunca/Documents/GitHub/claude-md-playground-wt/exp4-caveman-opus-xhigh/Tests/TMDBAppTests/Acceptance06.swift:41:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+ 39 | 
+ 40 |     func search(query: String, page: Int) async throws -> PagedResponse<Movie> {
+ 41 |         lock.lock(); _searchCalls.append(query); lock.unlock()
+    |              `- warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+ 42 |         if let searchError { throw searchError }
+ 43 |         guard let searchResult else { throw URLError(.fileDoesNotExist) }
+
+Foundation.NSLock.lock:2:11: note: 'lock()' declared here
+1 | class NSLock {
+2 | open func lock()}
+  |           `- note: 'lock()' declared here
+3 | 
+
+/Users/bengisutunca/Documents/GitHub/claude-md-playground-wt/exp4-caveman-opus-xhigh/Tests/TMDBAppTests/Acceptance06.swift:41:55: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+ 39 | 
+ 40 |     func search(query: String, page: Int) async throws -> PagedResponse<Movie> {
+ 41 |         lock.lock(); _searchCalls.append(query); lock.unlock()
+    |                                                       `- warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+ 42 |         if let searchError { throw searchError }
+ 43 |         guard let searchResult else { throw URLError(.fileDoesNotExist) }
+
+Foundation.NSLock.unlock:2:11: note: 'unlock()' declared here
+1 | class NSLock {
+2 | open func unlock()}
+  |           `- note: 'unlock()' declared here
+3 | 
+[4/6] Emitting module TMDBAppTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking TMDBAppPackageTests
+Build complete! (0.74s)
+Test Suite 'Selected tests' started at 2026-11-11 02:58:25.973.
+Test Suite 'TMDBAppPackageTests.xctest' started at 2026-11-11 02:58:25.973.
+Test Suite 'TMDBAppPackageTests.xctest' passed at 2026-11-11 02:58:25.973.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-11 02:58:25.973.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Acceptance 06: detail" started.
+◇ Test runtimeFormatting(minutes:expected:) started.
+◇ Test castIsTopTenByOrder() started.
+◇ Test detailFailureGivesFailed() started.
+◇ Test loadsDetailAndCredits() started.
+◇ Test case passing 2 arguments minutes → 148, expected → "2h 28m" to runtimeFormatting(minutes:expected:) started.
+◇ Test case passing 2 arguments minutes → 120, expected → "2h" to runtimeFormatting(minutes:expected:) started.
+◇ Test case passing 2 arguments minutes → 45, expected → "45m" to runtimeFormatting(minutes:expected:) started.
+◇ Test creditsFailureGivesFailed() started.
+◇ Test case passing 2 arguments minutes → 0, expected → "0m" to runtimeFormatting(minutes:expected:) started.
+◇ Test case passing 2 arguments minutes → 60, expected → "1h" to runtimeFormatting(minutes:expected:) started.
+◇ Test case passing 2 arguments minutes → 61, expected → "1h 1m" to runtimeFormatting(minutes:expected:) started.
+✔ Test creditsFailureGivesFailed() passed after 0.002 seconds.
+✔ Test castIsTopTenByOrder() passed after 0.003 seconds.
+✔ Test loadsDetailAndCredits() passed after 0.003 seconds.
+✔ Test detailFailureGivesFailed() passed after 0.003 seconds.
+✔ Test runtimeFormatting(minutes:expected:) with 6 test cases passed after 0.003 seconds.
+✔ Suite "Acceptance 06: detail" passed after 0.003 seconds.
+✔ Test run with 5 tests in 1 suite passed after 0.003 seconds.

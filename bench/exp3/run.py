@@ -31,8 +31,10 @@ sys.path.insert(0, str(HERE.parent / "exp2"))
 from common import (PERM_FLAGS, ROOT, TASK_DIR, TASKS, ensure_refs, ensure_worktree, git, prepare,  # noqa: E402
                     read_json_lines, run_acceptance, sh, write_json_line)
 
-OUT = ROOT / "results" / "exp3"
+EXP = "exp3"  # label used for worktrees, workflows and the results folder
+OUT = ROOT / "results" / EXP
 LOG = OUT / "trials.jsonl"
+SUMMARY = HERE / "summarize.py"
 USER_SETTINGS = Path.home() / ".claude" / "settings.json"
 
 ARMS = {
@@ -109,7 +111,7 @@ def run_session(arm, wt, prompt, model, max_turns, extra, workflow, raw, stderr_
     env = {**os.environ, "DO_NOT_TRACK": "1", **cfg["env"]}
     launcher = ["claude"] if cfg["wrap"] is None else ["caveman", "wrap", *cfg["wrap"], "--workflow", workflow, "claude"]
     cmd = [*launcher, "-p", prompt, "--model", cfg["model"] or model, "--output-format", "json",
-           "--max-turns", str(max_turns), *extra, *PERM_FLAGS]
+           "--max-turns", str(max_turns), *cfg.get("flags", []), *extra, *PERM_FLAGS]
     attempt, waited = 0, 0
     while attempt < 3:
         with open(raw, "w") as out, open(stderr_path, "w") as err:
@@ -154,7 +156,7 @@ def main():
             sys.exit(f"✗ unknown arm {a}; choose from {', '.join(ARMS)}")
     extra = preflight()
     ensure_refs()
-    wts = {a: ensure_worktree(f"exp3-{a}") for a in arms}
+    wts = {a: ensure_worktree(f"{EXP}-{a}") for a in arms}
 
     # Warm-up: the first session after a pause writes the shared prompt prefix to the provider
     # cache (~30k tokens) and later sessions read it cheaply. One unrecorded session per arm
@@ -165,7 +167,7 @@ def main():
         warm = OUT / "warmup"
         warm.mkdir(parents=True, exist_ok=True)
         run_session(a, wts[a], "Reply with the single word OK. Do not use any tools.", args.model, 2,
-                    extra, f"exp3-warmup-{a}", warm / f"{a}.json", warm / f"{a}.stderr")
+                    extra, f"{EXP}-warmup-{a}", warm / f"{a}.json", warm / f"{a}.stderr")
 
     if args.smoke:
         tasks, trials, log = SMOKE_TASKS, 1, OUT / "smoke.jsonl"
@@ -190,7 +192,7 @@ def main():
                 base = OUT / ("smoke" if args.smoke else "raw") / task
                 base.mkdir(parents=True, exist_ok=True)
                 stem = base / f"{arm}-t{trial}"
-                workflow = f"exp3-{'smoke-' if args.smoke else ''}{task}-{arm}-t{trial}"
+                workflow = f"{EXP}-{'smoke-' if args.smoke else ''}{task}-{arm}-t{trial}"
                 print(f"▶ trial {trial} · {task} · {arm}")
                 prepare(wt, cfg["start"], bug=cfg.get("bug"))  # no CLAUDE.md in any arm
 
@@ -273,7 +275,7 @@ def main():
         report.write_text(r.stdout)
         print(f"\nSmoke run done. caveman stats saved to {report.relative_to(ROOT)}")
     else:
-        subprocess.run([sys.executable, str(HERE / "summarize.py")])
+        subprocess.run([sys.executable, str(SUMMARY)])
 
 
 if __name__ == "__main__":

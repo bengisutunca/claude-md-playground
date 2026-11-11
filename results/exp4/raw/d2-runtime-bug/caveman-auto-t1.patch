@@ -1,0 +1,30 @@
+diff --git a/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift b/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift
+index 0be0cbf..cb04d9e 100644
+--- a/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift
++++ b/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift
+@@ -21,7 +21,7 @@ struct MovieDetailContent: Equatable, Sendable {
+     /// "2h 28m", "2h" for exact hours, "45m" under an hour, "0m" for zero.
+     static func formatRuntime(minutes: Int) -> String {
+         let minutes = max(0, minutes)
+-        let h = minutes / 60, m = minutes % 6
++        let h = minutes / 60, m = minutes % 60
+         if h == 0 { return "\(m)m" }
+         if m == 0 { return "\(h)h" }
+         return "\(h)h \(m)m"
+diff --git a/Tests/TMDBAppTests/MovieDetailViewModelTests.swift b/Tests/TMDBAppTests/MovieDetailViewModelTests.swift
+index a3abd49..eb51f0b 100644
+--- a/Tests/TMDBAppTests/MovieDetailViewModelTests.swift
++++ b/Tests/TMDBAppTests/MovieDetailViewModelTests.swift
+@@ -64,6 +64,12 @@ struct MovieDetailViewModelTests {
+         #expect(MovieDetailContent.formatRuntime(minutes: minutes) == expected)
+     }
+ 
++    /// Regression: minutes were computed with `% 6` instead of `% 60` (148 → "2h 4m").
++    @Test(arguments: [(148, "2h 28m"), (90, "1h 30m"), (179, "2h 59m"), (66, "1h 6m")])
++    func runtimeMinutesUseSixtyMinuteRemainder(minutes: Int, expected: String) {
++        #expect(MovieDetailContent.formatRuntime(minutes: minutes) == expected)
++    }
++
+     @Test func helpersFromFixture() async throws {
+         let vm = MovieDetailViewModel(movieID: 27205, service: MockMovieService())
+         await vm.load()

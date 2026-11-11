@@ -1,0 +1,486 @@
+diff --git a/Sources/TMDBApp/Services/ImageURLBuilder.swift b/Sources/TMDBApp/Services/ImageURLBuilder.swift
+new file mode 100644
+index 0000000..1e7afec
+--- /dev/null
++++ b/Sources/TMDBApp/Services/ImageURLBuilder.swift
+@@ -0,0 +1,26 @@
++import Foundation
++
++/// Builds TMDB image URLs: `<baseURL>/<size>/<file>`, e.g.
++/// `https://image.tmdb.org/t/p/w342/inception.jpg`.
++struct ImageURLBuilder: Sendable {
++    enum Size: String, CaseIterable, Sendable {
++        case w185, w342, w780, original
++    }
++
++    let baseURL: URL
++
++    init(baseURL: URL = TMDBApp.imageBaseURL) {
++        self.baseURL = baseURL
++    }
++
++    /// - Parameter path: a TMDB image path such as `"/inception.jpg"` (the leading slash is optional).
++    /// - Returns: nil when `path` is nil, empty, or only whitespace/slashes.
++    func url(path: String?, size: Size) -> URL? {
++        guard let trimmed = path?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
++        let file = trimmed.drop(while: { $0 == "/" })
++        guard !file.isEmpty else { return nil }
++        return baseURL
++            .appending(path: size.rawValue, directoryHint: .notDirectory)
++            .appending(path: String(file), directoryHint: .notDirectory)
++    }
++}
+diff --git a/Sources/TMDBApp/Services/MovieService.swift b/Sources/TMDBApp/Services/MovieService.swift
+new file mode 100644
+index 0000000..fcb0af4
+--- /dev/null
++++ b/Sources/TMDBApp/Services/MovieService.swift
+@@ -0,0 +1,13 @@
++/// Data access for movies, used by view models. Implementations throw the errors of the
++/// layer below (for `TMDBMovieService`, `APIError`).
++protocol MovieService: Sendable {
++    /// Popular movies, 1-based `page`.
++    func popular(page: Int) async throws -> PagedResponse<Movie>
++
++    /// Movies whose title matches `query`, 1-based `page`. The query is sent as given.
++    func search(query: String, page: Int) async throws -> PagedResponse<Movie>
++
++    func detail(id: Int) async throws -> MovieDetail
++
++    func credits(id: Int) async throws -> Credits
++}
+diff --git a/Sources/TMDBApp/Services/TMDBMovieService.swift b/Sources/TMDBApp/Services/TMDBMovieService.swift
+new file mode 100644
+index 0000000..24c5076
+--- /dev/null
++++ b/Sources/TMDBApp/Services/TMDBMovieService.swift
+@@ -0,0 +1,25 @@
++/// `MovieService` backed by the TMDB REST API. Each method sends exactly one request
++/// through `client` and passes its errors through unchanged.
++struct TMDBMovieService: MovieService {
++    private let client: any HTTPClient
++
++    init(client: any HTTPClient = TMDBClient()) {
++        self.client = client
++    }
++
++    func popular(page: Int) async throws -> PagedResponse<Movie> {
++        try await client.send(.popular(page: page), as: PagedResponse<Movie>.self)
++    }
++
++    func search(query: String, page: Int) async throws -> PagedResponse<Movie> {
++        try await client.send(.search(query: query, page: page), as: PagedResponse<Movie>.self)
++    }
++
++    func detail(id: Int) async throws -> MovieDetail {
++        try await client.send(.movieDetail(id: id), as: MovieDetail.self)
++    }
++
++    func credits(id: Int) async throws -> Credits {
++        try await client.send(.credits(movieID: id), as: Credits.self)
++    }
++}
+diff --git a/Tests/TMDBAppTests/FixtureLoader.swift b/Tests/TMDBAppTests/FixtureLoader.swift
+index d6b633c..e6ba90a 100644
+--- a/Tests/TMDBAppTests/FixtureLoader.swift
++++ b/Tests/TMDBAppTests/FixtureLoader.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++@testable import TMDBApp
+ 
+ /// Loads JSON fixtures bundled with the test target (`Tests/TMDBAppTests/Fixtures`).
+ enum Fixture {
+@@ -9,6 +10,11 @@ enum Fixture {
+         return try Data(contentsOf: url)
+     }
+ 
++    /// Decodes a fixture with the app's TMDB decoder.
++    static func decode<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
++        try JSONDecoder.tmdb.decode(type, from: data(name))
++    }
++
+     enum FixtureError: Error {
+         case missing(String)
+     }
+diff --git a/Tests/TMDBAppTests/ImageURLBuilderTests.swift b/Tests/TMDBAppTests/ImageURLBuilderTests.swift
+new file mode 100644
+index 0000000..3c2cce4
+--- /dev/null
++++ b/Tests/TMDBAppTests/ImageURLBuilderTests.swift
+@@ -0,0 +1,55 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@Suite("ImageURLBuilder")
++struct ImageURLBuilderTests {
++    let builder = ImageURLBuilder()
++
++    @Test func defaultBaseURLIsTMDBImageBase() {
++        #expect(builder.baseURL == TMDBApp.imageBaseURL)
++    }
++
++    @Test func buildsFullURL() {
++        #expect(builder.url(path: "/inception.jpg", size: .w342)?.absoluteString
++                == "https://image.tmdb.org/t/p/w342/inception.jpg")
++    }
++
++    @Test func sizeRawValues() {
++        #expect(ImageURLBuilder.Size.allCases.map(\.rawValue) == ["w185", "w342", "w780", "original"])
++    }
++
++    @Test(arguments: ImageURLBuilder.Size.allCases)
++    func sizeIsAPathSegment(_ size: ImageURLBuilder.Size) {
++        #expect(builder.url(path: "/inception.jpg", size: size)?.absoluteString
++                == "https://image.tmdb.org/t/p/\(size.rawValue)/inception.jpg")
++    }
++
++    @Test(arguments: [nil, "", "   ", "/"] as [String?])
++    func missingPathGivesNil(_ path: String?) {
++        #expect(builder.url(path: path, size: .w185) == nil)
++    }
++
++    @Test func leadingSlashIsOptional() {
++        #expect(builder.url(path: "inception.jpg", size: .w780)?.absoluteString
++                == "https://image.tmdb.org/t/p/w780/inception.jpg")
++    }
++
++    @Test func customBaseURLWithTrailingSlash() {
++        let custom = ImageURLBuilder(baseURL: URL(string: "https://cdn.example.test/img/")!)
++        #expect(custom.url(path: "/poster.jpg", size: .original)?.absoluteString
++                == "https://cdn.example.test/img/original/poster.jpg")
++    }
++
++    @Test func fixturePosterPaths() throws {
++        let page = try Fixture.decode(PagedResponse<Movie>.self, "popular_page1")
++        let urls = page.results.map { builder.url(path: $0.posterPath, size: .w185)?.absoluteString }
++        #expect(urls == [
++            "https://image.tmdb.org/t/p/w185/inception.jpg",
++            "https://image.tmdb.org/t/p/w185/interstellar.jpg",
++            "https://image.tmdb.org/t/p/w185/dark_knight.jpg",
++            "https://image.tmdb.org/t/p/w185/shawshank.jpg",
++            nil, // Fight Club has a null poster_path
++        ])
++    }
++}
+diff --git a/Tests/TMDBAppTests/MockHTTPClient.swift b/Tests/TMDBAppTests/MockHTTPClient.swift
+new file mode 100644
+index 0000000..8ff769a
+--- /dev/null
++++ b/Tests/TMDBAppTests/MockHTTPClient.swift
+@@ -0,0 +1,33 @@
++import Foundation
++@testable import TMDBApp
++
++/// `HTTPClient` that records every endpoint it is asked for and answers from a handler
++/// (fixture data or a thrown error). Never touches the network.
++final class MockHTTPClient: HTTPClient, @unchecked Sendable {
++    private let lock = NSLock()
++    private var _endpoints: [Endpoint] = []
++    private let handler: @Sendable (Endpoint) throws -> Data
++
++    /// - Parameter handler: returns the JSON body for an endpoint, or throws to simulate a failure.
++    init(handler: @escaping @Sendable (Endpoint) throws -> Data) {
++        self.handler = handler
++    }
++
++    /// Answers every request with the named fixture.
++    convenience init(fixture name: String) {
++        self.init { _ in try Fixture.data(name) }
++    }
++
++    /// Fails every request with `error`.
++    convenience init(error: any Error) {
++        self.init { _ in throw error }
++    }
++
++    /// Endpoints requested so far, in order.
++    var endpoints: [Endpoint] { lock.withLock { _endpoints } }
++
++    func send<T: Decodable>(_ endpoint: Endpoint, as type: T.Type) async throws -> T {
++        lock.withLock { _endpoints.append(endpoint) }
++        return try JSONDecoder.tmdb.decode(T.self, from: handler(endpoint))
++    }
++}
+diff --git a/Tests/TMDBAppTests/MockMovieService.swift b/Tests/TMDBAppTests/MockMovieService.swift
+new file mode 100644
+index 0000000..a7a8b9c
+--- /dev/null
++++ b/Tests/TMDBAppTests/MockMovieService.swift
+@@ -0,0 +1,106 @@
++import Foundation
++@testable import TMDBApp
++
++/// Reusable `MovieService` test double.
++///
++/// Resolution for every method, in order:
++/// 1. `error`, when set, is thrown.
++/// 2. The method's stub (`popularResult`, `searchResult`, `detailResult`, `creditsResult`), when set.
++/// 3. Fixture data from `Tests/TMDBAppTests/Fixtures/`:
++///    - `popular(page:)`      → `popular_page<page>` (pages 1 and 2 exist)
++///    - `search(query:page:)` → `search_inception` if the query contains "inception"
++///                              (case-insensitive), otherwise `search_empty`
++///    - `detail(id:)`         → `movie_detail_<id>` (27205 exists)
++///    - `credits(id:)`        → `movie_credits_<id>` (27205 exists)
++///    A missing fixture throws `Fixture.FixtureError.missing`.
++///
++/// Every call is recorded in `calls` before it resolves, including calls that throw.
++final class MockMovieService: MovieService, @unchecked Sendable {
++    enum Call: Equatable, Sendable {
++        case popular(page: Int)
++        case search(query: String, page: Int)
++        case detail(id: Int)
++        case credits(id: Int)
++    }
++
++    private let lock = NSLock()
++    private var _calls: [Call] = []
++    private var _error: (any Error)?
++    private var _popularResult: Result<PagedResponse<Movie>, any Error>?
++    private var _searchResult: Result<PagedResponse<Movie>, any Error>?
++    private var _detailResult: Result<MovieDetail, any Error>?
++    private var _creditsResult: Result<Credits, any Error>?
++
++    init(error: (any Error)? = nil) {
++        _error = error
++    }
++
++    // MARK: Configuration and recorded calls
++
++    /// Calls received so far, in order.
++    var calls: [Call] { lock.withLock { _calls } }
++
++    /// When set, every method throws this error.
++    var error: (any Error)? {
++        get { lock.withLock { _error } }
++        set { lock.withLock { _error = newValue } }
++    }
++
++    var popularResult: Result<PagedResponse<Movie>, any Error>? {
++        get { lock.withLock { _popularResult } }
++        set { lock.withLock { _popularResult = newValue } }
++    }
++
++    var searchResult: Result<PagedResponse<Movie>, any Error>? {
++        get { lock.withLock { _searchResult } }
++        set { lock.withLock { _searchResult = newValue } }
++    }
++
++    var detailResult: Result<MovieDetail, any Error>? {
++        get { lock.withLock { _detailResult } }
++        set { lock.withLock { _detailResult = newValue } }
++    }
++
++    var creditsResult: Result<Credits, any Error>? {
++        get { lock.withLock { _creditsResult } }
++        set { lock.withLock { _creditsResult = newValue } }
++    }
++
++    /// Forgets recorded calls; configuration is kept.
++    func resetCalls() {
++        lock.withLock { _calls.removeAll() }
++    }
++
++    // MARK: MovieService
++
++    func popular(page: Int) async throws -> PagedResponse<Movie> {
++        try resolve(.popular(page: page), stub: \._popularResult, fixture: "popular_page\(page)")
++    }
++
++    func search(query: String, page: Int) async throws -> PagedResponse<Movie> {
++        let fixture = query.localizedCaseInsensitiveContains("inception") ? "search_inception" : "search_empty"
++        return try resolve(.search(query: query, page: page), stub: \._searchResult, fixture: fixture)
++    }
++
++    func detail(id: Int) async throws -> MovieDetail {
++        try resolve(.detail(id: id), stub: \._detailResult, fixture: "movie_detail_\(id)")
++    }
++
++    func credits(id: Int) async throws -> Credits {
++        try resolve(.credits(id: id), stub: \._creditsResult, fixture: "movie_credits_\(id)")
++    }
++
++    private func resolve<T: Decodable>(
++        _ call: Call,
++        stub: KeyPath<MockMovieService, Result<T, any Error>?>,
++        fixture: String
++    ) throws -> T {
++        let (error, result) = lock.withLock {
++            _calls.append(call)
++            return (_error, self[keyPath: stub])
++        }
++        if let error { throw error }
++        if let result { return try result.get() }
++        return try Fixture.decode(T.self, fixture)
++    }
++}
+diff --git a/Tests/TMDBAppTests/MovieServiceTests.swift b/Tests/TMDBAppTests/MovieServiceTests.swift
+new file mode 100644
+index 0000000..36200dc
+--- /dev/null
++++ b/Tests/TMDBAppTests/MovieServiceTests.swift
+@@ -0,0 +1,164 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++private struct StubError: Error, Equatable {}
++
++/// One `MovieService` method call, with the endpoint `TMDBMovieService` should send for it
++/// and a fixture body that decodes as its result type.
++private enum ServiceCall: CaseIterable, Sendable, CustomTestStringConvertible {
++    case popular, search, detail, credits
++
++    var endpoint: Endpoint {
++        switch self {
++        case .popular: .popular(page: 2)
++        case .search: .search(query: "Inception", page: 1)
++        case .detail: .movieDetail(id: 27205)
++        case .credits: .credits(movieID: 27205)
++        }
++    }
++
++    var fixture: String {
++        switch self {
++        case .popular: "popular_page2"
++        case .search: "search_inception"
++        case .detail: "movie_detail_27205"
++        case .credits: "movie_credits_27205"
++        }
++    }
++
++    func run(_ service: some MovieService) async throws {
++        switch self {
++        case .popular: _ = try await service.popular(page: 2)
++        case .search: _ = try await service.search(query: "Inception", page: 1)
++        case .detail: _ = try await service.detail(id: 27205)
++        case .credits: _ = try await service.credits(id: 27205)
++        }
++    }
++
++    var testDescription: String { "\(self)" }
++}
++
++@Suite("TMDBMovieService")
++struct TMDBMovieServiceTests {
++    @Test(arguments: ServiceCall.allCases)
++    fileprivate func sendsOneMatchingRequest(_ call: ServiceCall) async throws {
++        let client = MockHTTPClient(fixture: call.fixture)
++        try await call.run(TMDBMovieService(client: client))
++        #expect(client.endpoints == [call.endpoint])
++    }
++
++    @Test(arguments: ServiceCall.allCases)
++    fileprivate func propagatesClientErrors(_ call: ServiceCall) async throws {
++        let client = MockHTTPClient(error: StubError())
++        await #expect(throws: StubError()) {
++            try await call.run(TMDBMovieService(client: client))
++        }
++        #expect(client.endpoints == [call.endpoint])
++    }
++
++    @Test func passesAPIErrorThroughUnchanged() async throws {
++        let message = "Invalid API key: You must be granted a valid key."
++        let service = TMDBMovieService(client: MockHTTPClient(error: APIError.httpStatus(code: 401, message: message)))
++        do {
++            _ = try await service.popular(page: 1)
++            Issue.record("expected error")
++        } catch APIError.httpStatus(let code, let received) {
++            #expect(code == 401)
++            #expect(received == message)
++        }
++    }
++
++    @Test func popularDecodesPage() async throws {
++        let client = MockHTTPClient(fixture: "popular_page1")
++        let page = try await TMDBMovieService(client: client).popular(page: 1)
++        #expect(client.endpoints == [.popular(page: 1)])
++        #expect(page.page == 1)
++        #expect(page.totalPages == 2)
++        #expect(page.totalResults == 7)
++        #expect(page.results.map(\.id) == [27205, 157336, 155, 278, 550])
++    }
++
++    @Test func searchSendsQueryAsGiven() async throws {
++        let client = MockHTTPClient(fixture: "search_empty")
++        let page = try await TMDBMovieService(client: client).search(query: "the matrix & co", page: 3)
++        #expect(client.endpoints == [.search(query: "the matrix & co", page: 3)])
++        #expect(page.results.isEmpty)
++        #expect(page.totalResults == 0)
++    }
++
++    @Test func searchDecodesResults() async throws {
++        let client = MockHTTPClient(fixture: "search_inception")
++        let page = try await TMDBMovieService(client: client).search(query: "Inception", page: 1)
++        #expect(page.results.map(\.title) == ["Inception"])
++        #expect(page.totalPages == 1)
++    }
++
++    @Test func detailDecodes() async throws {
++        let client = MockHTTPClient(fixture: "movie_detail_27205")
++        let detail = try await TMDBMovieService(client: client).detail(id: 27205)
++        #expect(detail.id == 27205)
++        #expect(detail.title == "Inception")
++        #expect(detail.runtime == 148)
++        #expect(detail.genres.map(\.name) == ["Action", "Science Fiction", "Adventure"])
++    }
++
++    @Test func creditsDecodes() async throws {
++        let client = MockHTTPClient(fixture: "movie_credits_27205")
++        let credits = try await TMDBMovieService(client: client).credits(id: 27205)
++        #expect(credits.id == 27205)
++        #expect(credits.cast.map(\.name) == ["Leonardo DiCaprio", "Joseph Gordon-Levitt", "Elliot Page", "Tom Hardy"])
++        #expect(credits.crew.map(\.job) == ["Director"])
++    }
++}
++
++@Suite("MockMovieService")
++struct MockMovieServiceTests {
++    @Test func defaultsToFixtures() async throws {
++        let mock = MockMovieService()
++        #expect(try await mock.popular(page: 1).results.count == 5)
++        #expect(try await mock.popular(page: 2).page == 2)
++        #expect(try await mock.search(query: "inCEPtion", page: 1).results.map(\.id) == [27205])
++        #expect(try await mock.search(query: "nothing here", page: 1).results.isEmpty)
++        #expect(try await mock.detail(id: 27205).runtime == 148)
++        #expect(try await mock.credits(id: 27205).cast.count == 4)
++    }
++
++    @Test func recordsCallsInOrder() async throws {
++        let mock = MockMovieService()
++        _ = try await mock.popular(page: 1)
++        _ = try await mock.search(query: "Inception", page: 1)
++        _ = try await mock.detail(id: 27205)
++        _ = try await mock.credits(id: 27205)
++        #expect(mock.calls == [.popular(page: 1), .search(query: "Inception", page: 1), .detail(id: 27205), .credits(id: 27205)])
++        mock.resetCalls()
++        #expect(mock.calls.isEmpty)
++    }
++
++    @Test func configuredErrorFailsEveryMethodAndIsStillRecorded() async throws {
++        let mock = MockMovieService(error: StubError())
++        mock.popularResult = .success(PagedResponse(page: 1, results: [], totalPages: 1, totalResults: 0))
++        await #expect(throws: StubError()) { _ = try await mock.popular(page: 1) }
++        await #expect(throws: StubError()) { _ = try await mock.search(query: "x", page: 1) }
++        await #expect(throws: StubError()) { _ = try await mock.detail(id: 1) }
++        await #expect(throws: StubError()) { _ = try await mock.credits(id: 1) }
++        #expect(mock.calls.count == 4)
++
++        mock.error = nil
++        #expect(try await mock.popular(page: 1).results.isEmpty)
++    }
++
++    @Test func stubsOverrideFixtures() async throws {
++        let mock = MockMovieService()
++        let custom = PagedResponse(page: 7, results: [Movie(id: 1, title: "Custom")], totalPages: 9, totalResults: 1)
++        mock.popularResult = .success(custom)
++        mock.creditsResult = .failure(StubError())
++        #expect(try await mock.popular(page: 1) == custom)
++        await #expect(throws: StubError()) { _ = try await mock.credits(id: 27205) }
++        #expect(try await mock.detail(id: 27205).id == 27205)
++    }
++
++    @Test func unknownFixtureThrows() async {
++        await #expect(throws: Fixture.FixtureError.self) { _ = try await MockMovieService().detail(id: 1) }
++    }
++}

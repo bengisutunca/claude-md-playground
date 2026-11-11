@@ -1,0 +1,515 @@
+diff --git a/Sources/TMDBApp/ViewModels/MovieListViewModel.swift b/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
+new file mode 100644
+index 0000000..1b91321
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
+@@ -0,0 +1,102 @@
++import Foundation
++import Observation
++
++/// Popular movies: loads page 1, appends later pages as the user scrolls, and refreshes from page 1.
++@MainActor
++@Observable
++final class MovieListViewModel {
++    /// TMDB rejects `page` values above 500, whatever `total_pages` says.
++    static let maxPage = 500
++
++    private(set) var state: ViewState<[Movie]> = .idle
++
++    /// User-facing message for the last failed request; nil once a request succeeds.
++    /// A first-page failure with nothing on screen is also reported as `.failed`;
++    /// later failures leave the loaded movies in place.
++    private(set) var errorMessage: String?
++
++    private let service: any MovieService
++    /// Page being requested right now, or nil when no request is in flight.
++    private var loadingPage: Int?
++    private var currentPage = 0
++    private var totalPages = 0
++    private var failedPage: Int?
++    /// Bumped for every request; a response whose token is no longer current is dropped,
++    /// so a page that arrives after a refresh can't be appended to the new list.
++    private var requestToken = 0
++
++    init(service: any MovieService) {
++        self.service = service
++    }
++
++    var movies: [Movie] { state.value ?? [] }
++
++    var isLoadingNextPage: Bool { (loadingPage ?? 0) > 1 }
++
++    var hasMorePages: Bool { currentPage < min(totalPages, Self.maxPage) }
++
++    /// Loads the first page. Does nothing if movies are already loaded or a request is in flight,
++    /// so it is safe to call every time the screen appears.
++    func load() async {
++        guard loadingPage == nil else { return }
++        switch state {
++        case .loaded, .empty: return
++        case .idle, .loading, .failed: break
++        }
++        await fetch(page: 1)
++    }
++
++    /// Reloads from page 1 and replaces the current movies, superseding any request in flight.
++    /// The current movies stay visible until the new page arrives.
++    func refresh() async {
++        await fetch(page: 1)
++    }
++
++    /// Loads the next page when `currentItem` is the last loaded movie, unless a request
++    /// is already in flight or the last page has been reached.
++    func loadNextPageIfNeeded(currentItem: Movie) async {
++        guard loadingPage == nil, hasMorePages, currentItem.id == movies.last?.id else { return }
++        await fetch(page: currentPage + 1)
++    }
++
++    /// Repeats the request that failed last.
++    func retry() async {
++        guard loadingPage == nil, let failedPage else { return }
++        await fetch(page: failedPage)
++    }
++
++    private func fetch(page: Int) async {
++        requestToken += 1
++        let token = requestToken
++        loadingPage = page
++        errorMessage = nil
++        if movies.isEmpty { state = .loading }
++        defer { if token == requestToken { loadingPage = nil } }
++
++        do {
++            let response = try await service.popular(page: page)
++            guard token == requestToken else { return }
++
++            let existing = page == 1 ? [] : movies
++            // TMDB can repeat a movie on adjacent pages when rankings shift; list IDs must stay unique.
++            var seen = Set(existing.map(\.id))
++            let merged = existing + response.results.filter { seen.insert($0.id).inserted }
++
++            currentPage = page
++            totalPages = response.totalPages
++            failedPage = nil
++            state = merged.isEmpty ? .empty : .loaded(merged)
++        } catch {
++            guard token == requestToken else { return }
++            if Task.isCancelled || error is CancellationError {
++                // Not a failure: the screen went away. Let the next `load()` start over.
++                if movies.isEmpty { state = .idle }
++                return
++            }
++            let message = error.userFacingMessage
++            errorMessage = message
++            failedPage = page
++            if movies.isEmpty { state = .failed(message) }
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/ViewModels/UserFacingError.swift b/Sources/TMDBApp/ViewModels/UserFacingError.swift
+new file mode 100644
+index 0000000..3946959
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/UserFacingError.swift
+@@ -0,0 +1,26 @@
++import Foundation
++
++extension Error {
++    /// A short message that can be shown to the user as is.
++    var userFacingMessage: String {
++        guard let apiError = self as? APIError else {
++            return "Something went wrong. Please try again."
++        }
++        switch apiError {
++        case .missingAPIKey:
++            return "No TMDB API key is set. Add TMDB_API_KEY and try again."
++        case .transport:
++            return "Couldn't reach TMDB. Check your internet connection and try again."
++        case .httpStatus(code: 401, _):
++            return "TMDB rejected the API key. Check TMDB_API_KEY and try again."
++        case .httpStatus(code: 429, _):
++            return "Too many requests. Wait a moment and try again."
++        case .httpStatus(let code, _) where code >= 500:
++            return "TMDB is having problems right now. Please try again later."
++        case .httpStatus(_, let message):
++            return message ?? "The request failed. Please try again."
++        case .invalidResponse, .decoding:
++            return "TMDB sent an unexpected response. Please try again later."
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/ViewModels/ViewState.swift b/Sources/TMDBApp/ViewModels/ViewState.swift
+new file mode 100644
+index 0000000..56b04e7
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/ViewState.swift
+@@ -0,0 +1,18 @@
++/// Loading state of a screen, shared by view models.
++enum ViewState<Value> {
++    case idle
++    case loading
++    case loaded(Value)
++    case empty
++    case failed(String)
++}
++
++extension ViewState: Equatable where Value: Equatable {}
++extension ViewState: Sendable where Value: Sendable {}
++
++extension ViewState {
++    /// The loaded value, or nil in any other state.
++    var value: Value? {
++        if case .loaded(let value) = self { value } else { nil }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/MovieListView.swift b/Sources/TMDBApp/Views/MovieListView.swift
+new file mode 100644
+index 0000000..12b59c8
+--- /dev/null
++++ b/Sources/TMDBApp/Views/MovieListView.swift
+@@ -0,0 +1,76 @@
++import SwiftUI
++
++/// Popular movies, paged in as the user scrolls. Pull to refresh.
++struct MovieListView: View {
++    @State private var viewModel: MovieListViewModel
++
++    init(viewModel: MovieListViewModel) {
++        _viewModel = State(initialValue: viewModel)
++    }
++
++    var body: some View {
++        content
++            .navigationTitle("Popular")
++            .task { await viewModel.load() }
++    }
++
++    @ViewBuilder
++    private var content: some View {
++        switch viewModel.state {
++        case .idle, .loading:
++            ProgressView()
++                .frame(maxWidth: .infinity, maxHeight: .infinity)
++
++        case .loaded(let movies):
++            movieList(movies)
++
++        case .empty:
++            ContentUnavailableView {
++                Label("No Movies", systemImage: "film")
++            } description: {
++                Text("There are no popular movies to show right now.")
++            } actions: {
++                Button("Refresh") { Task { await viewModel.refresh() } }
++            }
++
++        case .failed(let message):
++            ContentUnavailableView {
++                Label("Couldn't Load Movies", systemImage: "exclamationmark.triangle")
++            } description: {
++                Text(message)
++            } actions: {
++                Button("Try Again") { Task { await viewModel.load() } }
++            }
++        }
++    }
++
++    private func movieList(_ movies: [Movie]) -> some View {
++        List {
++            ForEach(movies) { movie in
++                MovieRowView(movie: movie)
++                    .task { await viewModel.loadNextPageIfNeeded(currentItem: movie) }
++            }
++            footer
++        }
++        .listStyle(.plain)
++        .refreshable { await viewModel.refresh() }
++    }
++
++    @ViewBuilder
++    private var footer: some View {
++        if viewModel.isLoadingNextPage {
++            ProgressView()
++                .frame(maxWidth: .infinity)
++        } else if let message = viewModel.errorMessage {
++            VStack(spacing: 8) {
++                Text(message)
++                    .font(.footnote)
++                    .foregroundStyle(.secondary)
++                    .multilineTextAlignment(.center)
++                Button("Try Again") { Task { await viewModel.retry() } }
++            }
++            .frame(maxWidth: .infinity)
++            .padding(.vertical, 8)
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/MovieRowView.swift b/Sources/TMDBApp/Views/MovieRowView.swift
+new file mode 100644
+index 0000000..04e9646
+--- /dev/null
++++ b/Sources/TMDBApp/Views/MovieRowView.swift
+@@ -0,0 +1,38 @@
++import SwiftUI
++
++/// One movie in a list: poster thumbnail, title, release year and rating.
++struct MovieRowView: View {
++    let movie: Movie
++    var imageURLBuilder = ImageURLBuilder()
++
++    var body: some View {
++        HStack(spacing: 12) {
++            PosterImage(url: imageURLBuilder.url(path: movie.posterPath, size: .w185))
++                .frame(width: 60, height: 90)
++                .clipShape(RoundedRectangle(cornerRadius: 6))
++
++            VStack(alignment: .leading, spacing: 4) {
++                Text(movie.title)
++                    .font(.headline)
++                    .lineLimit(2)
++
++                if let year = movie.year {
++                    Text(year)
++                        .font(.subheadline)
++                        .foregroundStyle(.secondary)
++                }
++
++                HStack(spacing: 4) {
++                    Image(systemName: "star.fill")
++                        .foregroundStyle(.yellow)
++                    Text(movie.ratingText)
++                }
++                .font(.subheadline)
++                .accessibilityElement(children: .ignore)
++                .accessibilityLabel("Rated \(movie.ratingText) out of 10")
++            }
++        }
++        .padding(.vertical, 4)
++        .accessibilityElement(children: .combine)
++    }
++}
+diff --git a/Sources/TMDBApp/Views/PosterImage.swift b/Sources/TMDBApp/Views/PosterImage.swift
+new file mode 100644
+index 0000000..8e92bc1
+--- /dev/null
++++ b/Sources/TMDBApp/Views/PosterImage.swift
+@@ -0,0 +1,28 @@
++import SwiftUI
++
++/// Remote poster that shows a placeholder while loading, on failure, or when there is no URL.
++/// Size and clip it at the call site.
++struct PosterImage: View {
++    let url: URL?
++
++    var body: some View {
++        AsyncImage(url: url) { phase in
++            if let image = phase.image {
++                image
++                    .resizable()
++                    .scaledToFill()
++            } else {
++                placeholder
++            }
++        }
++        .accessibilityHidden(true)
++    }
++
++    private var placeholder: some View {
++        ZStack {
++            Rectangle().fill(.quaternary)
++            Image(systemName: "film")
++                .foregroundStyle(.secondary)
++        }
++    }
++}
+diff --git a/Tests/TMDBAppTests/MockMovieService.swift b/Tests/TMDBAppTests/MockMovieService.swift
+index 4e89fe3..09022f4 100644
+--- a/Tests/TMDBAppTests/MockMovieService.swift
++++ b/Tests/TMDBAppTests/MockMovieService.swift
+@@ -13,10 +13,22 @@ actor MockMovieService: MovieService {
+     var error: Error?
+     private(set) var calls: [Call] = []
+ 
++    /// When set, the next `popular(page:)` call is recorded, then waits for `releaseHeldResponse()`.
++    /// Only that one call waits, so a stray extra call shows up in `calls` and can't deadlock a test.
++    private var holdsNextResponse = false
++    private var heldResponse: CheckedContinuation<Void, Never>?
++
+     init(error: Error? = nil) { self.error = error }
+ 
+     func setError(_ error: Error?) { self.error = error }
+ 
++    func holdNextResponse() { holdsNextResponse = true }
++
++    func releaseHeldResponse() {
++        heldResponse?.resume()
++        heldResponse = nil
++    }
++
+     private func decode<T: Decodable>(_ fixture: String, as type: T.Type) throws -> T {
+         if let error { throw error }
+         return try JSONDecoder.tmdb.decode(T.self, from: Fixture.data(fixture))
+@@ -24,6 +36,10 @@ actor MockMovieService: MovieService {
+ 
+     func popular(page: Int) async throws -> PagedResponse<Movie> {
+         calls.append(.popular(page: page))
++        if holdsNextResponse {
++            holdsNextResponse = false
++            await withCheckedContinuation { heldResponse = $0 }
++        }
+         return try decode(page == 2 ? "popular_page2" : "popular_page1", as: PagedResponse<Movie>.self)
+     }
+ 
+diff --git a/Tests/TMDBAppTests/MovieListViewModelTests.swift b/Tests/TMDBAppTests/MovieListViewModelTests.swift
+new file mode 100644
+index 0000000..3a8fcb4
+--- /dev/null
++++ b/Tests/TMDBAppTests/MovieListViewModelTests.swift
+@@ -0,0 +1,147 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++@Suite("MovieListViewModel")
++@MainActor
++struct MovieListViewModelTests {
++    let page1: [Movie]
++    let page2: [Movie]
++
++    init() throws {
++        page1 = try Self.movies(in: "popular_page1")
++        page2 = try Self.movies(in: "popular_page2")
++    }
++
++    private static func movies(in fixture: String) throws -> [Movie] {
++        try JSONDecoder.tmdb.decode(PagedResponse<Movie>.self, from: Fixture.data(fixture)).results
++    }
++
++    @Test func firstLoadShowsFirstPage() async throws {
++        let service = MockMovieService()
++        let viewModel = MovieListViewModel(service: service)
++        #expect(viewModel.state == .idle)
++
++        await viewModel.load()
++
++        #expect(viewModel.state == .loaded(page1))
++        #expect(viewModel.errorMessage == nil)
++        #expect(viewModel.hasMorePages)
++
++        // The view calls `load()` on every appearance; once loaded it must not refetch.
++        await viewModel.load()
++        #expect(await service.calls == [.popular(page: 1)])
++    }
++
++    @Test func lastItemLoadsAndAppendsNextPage() async throws {
++        let service = MockMovieService()
++        let viewModel = MovieListViewModel(service: service)
++        await viewModel.load()
++
++        await viewModel.loadNextPageIfNeeded(currentItem: page1[0])
++        #expect(await service.calls == [.popular(page: 1)], "only the last item triggers paging")
++
++        await viewModel.loadNextPageIfNeeded(currentItem: try #require(page1.last))
++
++        #expect(viewModel.state == .loaded(page1 + page2))
++        #expect(await service.calls == [.popular(page: 1), .popular(page: 2)])
++    }
++
++    @Test func stopsAtTotalPages() async throws {
++        let service = MockMovieService()
++        let viewModel = MovieListViewModel(service: service)
++        await viewModel.load()
++        await viewModel.loadNextPageIfNeeded(currentItem: try #require(page1.last))
++        #expect(!viewModel.hasMorePages)
++
++        await viewModel.loadNextPageIfNeeded(currentItem: try #require(page2.last))
++
++        #expect(viewModel.state == .loaded(page1 + page2))
++        #expect(await service.calls == [.popular(page: 1), .popular(page: 2)])
++    }
++
++    @Test(.timeLimit(.minutes(1)))
++    func ignoresNextPageCallsWhileAPageIsLoading() async throws {
++        let service = MockMovieService()
++        let viewModel = MovieListViewModel(service: service)
++        await viewModel.load()
++        let last = try #require(page1.last)
++
++        await service.holdNextResponse()
++        let inFlight = Task { await viewModel.loadNextPageIfNeeded(currentItem: last) }
++        while await service.calls.count < 2 {
++            try Task.checkCancellation()
++            await Task.yield()
++        }
++        #expect(viewModel.isLoadingNextPage)
++
++        await viewModel.loadNextPageIfNeeded(currentItem: last)
++        await viewModel.loadNextPageIfNeeded(currentItem: last)
++        await service.releaseHeldResponse()
++        await inFlight.value
++
++        #expect(!viewModel.isLoadingNextPage)
++        #expect(viewModel.state == .loaded(page1 + page2))
++        #expect(await service.calls == [.popular(page: 1), .popular(page: 2)])
++    }
++
++    @Test func firstLoadFailureShowsErrorAndCanRetry() async throws {
++        let service = MockMovieService(error: APIError.httpStatus(code: 401, message: "Invalid API key"))
++        let viewModel = MovieListViewModel(service: service)
++
++        await viewModel.load()
++
++        guard case .failed(let message) = viewModel.state else {
++            Issue.record("expected .failed, got \(viewModel.state)")
++            return
++        }
++        #expect(message.contains("API key"))
++        #expect(viewModel.errorMessage == message)
++
++        await service.setError(nil)
++        await viewModel.load()
++
++        #expect(viewModel.state == .loaded(page1))
++        #expect(viewModel.errorMessage == nil)
++    }
++
++    @Test func nextPageFailureKeepsMoviesAndCanRetry() async throws {
++        let service = MockMovieService()
++        let viewModel = MovieListViewModel(service: service)
++        await viewModel.load()
++
++        await service.setError(APIError.transport(URLError(.notConnectedToInternet)))
++        await viewModel.loadNextPageIfNeeded(currentItem: try #require(page1.last))
++
++        #expect(viewModel.state == .loaded(page1))
++        #expect(viewModel.errorMessage?.contains("internet connection") == true)
++        #expect(!viewModel.isLoadingNextPage)
++
++        await service.setError(nil)
++        await viewModel.retry()
++
++        #expect(viewModel.state == .loaded(page1 + page2))
++        #expect(viewModel.errorMessage == nil)
++        #expect(await service.calls == [.popular(page: 1), .popular(page: 2), .popular(page: 2)])
++    }
++
++    @Test func refreshResetsToFirstPage() async throws {
++        let service = MockMovieService()
++        let viewModel = MovieListViewModel(service: service)
++        await viewModel.load()
++        await viewModel.loadNextPageIfNeeded(currentItem: try #require(page1.last))
++        #expect(!viewModel.hasMorePages)
++
++        await viewModel.refresh()
++
++        #expect(viewModel.state == .loaded(page1))
++        #expect(viewModel.hasMorePages)
++
++        await viewModel.loadNextPageIfNeeded(currentItem: try #require(page1.last))
++
++        #expect(viewModel.state == .loaded(page1 + page2))
++        #expect(await service.calls == [
++            .popular(page: 1), .popular(page: 2), .popular(page: 1), .popular(page: 2)
++        ])
++    }
++}

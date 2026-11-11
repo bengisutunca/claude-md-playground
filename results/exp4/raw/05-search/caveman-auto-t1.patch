@@ -1,0 +1,257 @@
+diff --git a/Sources/TMDBApp/ViewModels/ErrorMessage.swift b/Sources/TMDBApp/ViewModels/ErrorMessage.swift
+new file mode 100644
+index 0000000..3ae191f
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/ErrorMessage.swift
+@@ -0,0 +1,21 @@
++import Foundation
++
++/// User-facing text for errors surfaced by view models.
++enum ErrorMessage {
++    static func text(for error: Error) -> String {
++        guard let apiError = error as? APIError else {
++            return "Something went wrong. Please try again."
++        }
++        switch apiError {
++        case .missingAPIKey:
++            return "The TMDB API key is missing."
++        case .httpStatus(let code, let message):
++            if code == 401 { return "Invalid API key." }
++            return message ?? "The server returned an error (\(code))."
++        case .transport:
++            return "Couldn't reach the server. Check your connection."
++        case .decoding, .invalidResponse:
++            return "Received an unexpected response from the server."
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/ViewModels/MovieListViewModel.swift b/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
+index bc91c94..661bc74 100644
+--- a/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
++++ b/Sources/TMDBApp/ViewModels/MovieListViewModel.swift
+@@ -72,7 +72,7 @@ final class MovieListViewModel {
+             return
+         } catch {
+             guard token == generation else { return }
+-            let message = Self.message(for: error)
++            let message = ErrorMessage.text(for: error)
+             if movies.isEmpty {
+                 state = .failed(message)
+             } else {
+@@ -80,21 +80,4 @@ final class MovieListViewModel {
+             }
+         }
+     }
+-
+-    static func message(for error: Error) -> String {
+-        guard let apiError = error as? APIError else {
+-            return "Something went wrong. Please try again."
+-        }
+-        switch apiError {
+-        case .missingAPIKey:
+-            return "The TMDB API key is missing."
+-        case .httpStatus(let code, let message):
+-            if code == 401 { return "Invalid API key." }
+-            return message ?? "The server returned an error (\(code))."
+-        case .transport:
+-            return "Couldn't reach the server. Check your connection."
+-        case .decoding, .invalidResponse:
+-            return "Received an unexpected response from the server."
+-        }
+-    }
+ }
+diff --git a/Sources/TMDBApp/ViewModels/SearchViewModel.swift b/Sources/TMDBApp/ViewModels/SearchViewModel.swift
+new file mode 100644
+index 0000000..ccb21a7
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/SearchViewModel.swift
+@@ -0,0 +1,56 @@
++import Foundation
++import Observation
++
++@MainActor
++@Observable
++final class SearchViewModel {
++    /// Setting this schedules a debounced search, cancelling any search scheduled before it.
++    var query: String = "" {
++        didSet { if query != oldValue { scheduleSearch() } }
++    }
++    private(set) var state: ViewState<[Movie]> = .idle
++
++    static let minimumQueryLength = 2
++
++    @ObservationIgnored private let service: any MovieService
++    @ObservationIgnored private let debounce: Duration
++    @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
++    @ObservationIgnored private var searchTask: Task<Void, Never>?
++
++    init(service: any MovieService,
++         debounce: Duration = .milliseconds(300),
++         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
++        self.service = service
++        self.debounce = debounce
++        self.sleep = sleep
++    }
++
++    /// Returns once the currently scheduled search, if any, has finished.
++    func waitForSearch() async {
++        await searchTask?.value
++    }
++
++    private func scheduleSearch() {
++        searchTask?.cancel()
++        searchTask = nil
++        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
++        guard trimmed.count >= Self.minimumQueryLength else {
++            state = .idle
++            return
++        }
++        state = .loading
++        searchTask = Task { [weak self, service, debounce, sleep] in
++            // An injected sleep may not throw on cancellation, so check explicitly too.
++            do { try await sleep(debounce) } catch { return }
++            guard !Task.isCancelled else { return }
++            do {
++                let response = try await service.search(query: trimmed, page: 1)
++                guard !Task.isCancelled, let self else { return }
++                self.state = response.results.isEmpty ? .empty : .loaded(response.results)
++            } catch {
++                guard !Task.isCancelled, !(error is CancellationError), let self else { return }
++                self.state = .failed(ErrorMessage.text(for: error))
++            }
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/SearchView.swift b/Sources/TMDBApp/Views/SearchView.swift
+new file mode 100644
+index 0000000..70e8532
+--- /dev/null
++++ b/Sources/TMDBApp/Views/SearchView.swift
+@@ -0,0 +1,41 @@
++import SwiftUI
++
++struct SearchView: View {
++    @State private var viewModel: SearchViewModel
++
++    init(viewModel: SearchViewModel) {
++        _viewModel = State(initialValue: viewModel)
++    }
++
++    var body: some View {
++        content
++            .navigationTitle("Search")
++            #if os(iOS)
++            .searchable(text: $viewModel.query,
++                        placement: .navigationBarDrawer(displayMode: .always),
++                        prompt: "Search movies")
++            #else
++            .searchable(text: $viewModel.query, prompt: "Search movies")
++            #endif
++    }
++
++    @ViewBuilder
++    private var content: some View {
++        switch viewModel.state {
++        case .idle:
++            ContentUnavailableView("Search Movies", systemImage: "magnifyingglass",
++                                   description: Text("Type at least \(SearchViewModel.minimumQueryLength) characters."))
++        case .loading:
++            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
++        case .empty:
++            ContentUnavailableView.search(text: viewModel.query)
++        case .failed(let text):
++            ContentUnavailableView("Search Failed", systemImage: "exclamationmark.triangle",
++                                   description: Text(text))
++        case .loaded(let movies):
++            List(movies) { movie in
++                MovieRowView(movie: movie)
++            }
++        }
++    }
++}
+diff --git a/Tests/TMDBAppTests/SearchViewModelTests.swift b/Tests/TMDBAppTests/SearchViewModelTests.swift
+new file mode 100644
+index 0000000..372faaf
+--- /dev/null
++++ b/Tests/TMDBAppTests/SearchViewModelTests.swift
+@@ -0,0 +1,80 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++/// Records debounce sleeps without actually waiting.
++private actor SleepRecorder {
++    private(set) var durations: [Duration] = []
++    func record(_ duration: Duration) { durations.append(duration) }
++}
++
++@MainActor
++@Suite("SearchViewModel")
++struct SearchViewModelTests {
++    private func makeViewModel(service: MockMovieService, recorder: SleepRecorder = SleepRecorder()) -> SearchViewModel {
++        SearchViewModel(service: service, sleep: { await recorder.record($0) })
++    }
++
++    @Test func shortQueryDoesNotCallService() async {
++        let service = MockMovieService()
++        let recorder = SleepRecorder()
++        let vm = makeViewModel(service: service, recorder: recorder)
++        vm.query = " a "
++        await vm.waitForSearch()
++        #expect(vm.state == .idle)
++        #expect(await service.calls.isEmpty)
++        #expect(await recorder.durations.isEmpty)
++    }
++
++    @Test func shortQueryClearsPreviousResults() async {
++        let service = MockMovieService()
++        let vm = makeViewModel(service: service)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        guard case .loaded = vm.state else { Issue.record("expected loaded"); return }
++        vm.query = "i"
++        await vm.waitForSearch()
++        #expect(vm.state == .idle)
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++    }
++
++    @Test func rapidTypingTriggersOneSearch() async {
++        let service = MockMovieService()
++        let recorder = SleepRecorder()
++        let vm = makeViewModel(service: service, recorder: recorder)
++        for prefix in ["in", "inc", "ince", "incep", "inception"] {
++            vm.query = prefix
++        }
++        await vm.waitForSearch()
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++        #expect(await recorder.durations.allSatisfy { $0 == .milliseconds(300) })
++        guard case .loaded = vm.state else { Issue.record("expected loaded"); return }
++    }
++
++    @Test func searchInceptionLoadsResults() async {
++        let service = MockMovieService()
++        let vm = makeViewModel(service: service)
++        vm.query = "  inception "
++        await vm.waitForSearch()
++        guard case .loaded(let movies) = vm.state else { Issue.record("expected loaded"); return }
++        #expect(movies.map(\.id) == [27205])
++        #expect(movies.first?.title == "Inception")
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++    }
++
++    @Test func emptyResultIsEmptyState() async {
++        let service = MockMovieService()
++        let vm = makeViewModel(service: service)
++        vm.query = "empty"
++        await vm.waitForSearch()
++        #expect(vm.state == .empty)
++    }
++
++    @Test func errorState() async {
++        let service = MockMovieService(error: APIError.httpStatus(code: 401, message: "bad key"))
++        let vm = makeViewModel(service: service)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        #expect(vm.state == .failed("Invalid API key."))
++    }
++}

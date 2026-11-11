@@ -11,6 +11,10 @@ from common import ROOT, TASKS, read_json_lines  # noqa: E402
 from summarize import fmt_ci, ratio_ci  # noqa: E402
 
 OUT = ROOT / "results" / "exp3"
+TITLE = "# Experiment 3: the full caveman tool"
+ARM_ORDER = ("baseline", "caveman", "caveman-auto")
+COMPARISONS = [("baseline", "caveman"), ("baseline", "caveman-auto"), ("caveman", "caveman-auto")]
+INTRO = ("Same tasks, reference commits and hidden tests as experiment 2; no CLAUDE.md in any arm.")
 GROUPS = [("All tasks", lambda t: True),
           ("Code (01–08)", lambda t: TASKS[t]["kind"] == "code"),
           ("Bug fix (d1–d3)", lambda t: TASKS[t]["kind"] == "fix"),
@@ -33,7 +37,7 @@ def main():
         # Claude Code cannot price the caveman-auto model id; use caveman's per-model record there.
         r["cost"] = r.get("caveman_usd") if r["arm"] == "caveman-auto" and r.get("caveman_usd") else r.get("cost_usd")
     idx = {(r["task"], r["arm"], r["trial"]): r for r in rows}
-    arms = [a for a in ("baseline", "caveman", "caveman-auto") if any(r["arm"] == a for r in rows)]
+    arms = [a for a in ARM_ORDER if any(r["arm"] == a for r in rows)]
 
     def pairs(a, b, flt, key):
         out = []
@@ -45,11 +49,9 @@ def main():
                 out.append((ra[key], rb[key]))
         return out
 
-    comparisons = [(a, b) for a, b in [("baseline", "caveman"), ("baseline", "caveman-auto"), ("caveman", "caveman-auto")]
-                   if a in arms and b in arms]
-    L = ["# Experiment 3: the full caveman tool", "",
-         f"Arms: {', '.join(arms)} · {len(rows)} sessions. Same tasks, reference commits and hidden tests as "
-         "experiment 2; no CLAUDE.md in any arm. Δ = second arm vs first, geometric mean over paired "
+    comparisons = [(a, b) for a, b in COMPARISONS if a in arms and b in arms]
+    L = [TITLE, "",
+         f"Arms: {', '.join(arms)} · {len(rows)} sessions. {INTRO} Δ = second arm vs first, geometric mean over paired "
          "trials, 95% confidence interval. An interval that includes 0 means no detectable difference.", ""]
     for a, b in comparisons:
         L += [f"## {b} vs {a}", "", "| Group | " + " | ".join(m[1] + " Δ" for m in METRICS) + " |",
@@ -75,7 +77,8 @@ def main():
         mtxt = ", ".join(f"{m} ${c:.2f}" for m, c in sorted(models.items(), key=lambda x: -x[1]))
         L.append(f"| {a} | {len(rs)} | {acc * 100 if acc is not None else 0:.1f}% | {own * 100 if own is not None else 0:.0f}% | "
                  f"{mtxt} | {mean([r.get('cost') for r in rs]):.3f} |")
-    check = [(r["cost_usd"], r["caveman_usd"]) for r in rows if r["arm"] == "caveman" and r.get("caveman_usd") and r.get("cost_usd")]
+    check = [(r["cost_usd"], r["caveman_usd"]) for r in rows
+             if r["arm"].startswith("caveman") and r["arm"] != "caveman-auto" and r.get("caveman_usd") and r.get("cost_usd")]
     L += ["", "Cost: Claude Code's `total_cost_usd` for baseline and caveman; caveman's own per-model record "
           "for caveman-auto, because Claude Code cannot price the `caveman-auto` model id. Both are API-price "
           "estimates on a subscription."]

@@ -1,0 +1,40 @@
+diff --git a/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift b/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift
+index 0be0cbf..cb04d9e 100644
+--- a/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift
++++ b/Sources/TMDBApp/ViewModels/MovieDetailViewModel.swift
+@@ -21,7 +21,7 @@ struct MovieDetailContent: Equatable, Sendable {
+     /// "2h 28m", "2h" for exact hours, "45m" under an hour, "0m" for zero.
+     static func formatRuntime(minutes: Int) -> String {
+         let minutes = max(0, minutes)
+-        let h = minutes / 60, m = minutes % 6
++        let h = minutes / 60, m = minutes % 60
+         if h == 0 { return "\(m)m" }
+         if m == 0 { return "\(h)h" }
+         return "\(h)h \(m)m"
+diff --git a/Tests/TMDBAppTests/MovieDetailViewModelTests.swift b/Tests/TMDBAppTests/MovieDetailViewModelTests.swift
+index a3abd49..0548fb4 100644
+--- a/Tests/TMDBAppTests/MovieDetailViewModelTests.swift
++++ b/Tests/TMDBAppTests/MovieDetailViewModelTests.swift
+@@ -64,6 +64,22 @@ struct MovieDetailViewModelTests {
+         #expect(MovieDetailContent.formatRuntime(minutes: minutes) == expected)
+     }
+ 
++    /// Regression: minutes were computed with `% 6` instead of `% 60`,
++    /// so Inception (148 min) rendered as "2h 4m".
++    @Test func runtimeMinutesUseModuloSixty() {
++        #expect(MovieDetailContent.formatRuntime(minutes: 148) == "2h 28m")
++        // Every formatted value must convert back to the original minute count.
++        for total in 0...600 {
++            let text = MovieDetailContent.formatRuntime(minutes: total)
++            var parsed = 0
++            for part in text.split(separator: " ") {
++                if part.hasSuffix("h") { parsed += Int(part.dropLast())! * 60 }
++                else if part.hasSuffix("m") { parsed += Int(part.dropLast())! }
++            }
++            #expect(parsed == total, "\(total) min formatted as \"\(text)\"")
++        }
++    }
++
+     @Test func helpersFromFixture() async throws {
+         let vm = MovieDetailViewModel(movieID: 27205, service: MockMovieService())
+         await vm.load()

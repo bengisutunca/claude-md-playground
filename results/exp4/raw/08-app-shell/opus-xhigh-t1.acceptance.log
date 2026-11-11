@@ -1,0 +1,31 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write sources
+[1/4] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Emitting module TMDBAppTests
+[4/6] Compiling TMDBAppTests Acceptance08.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking TMDBAppPackageTests
+Build complete! (0.73s)
+Test Suite 'Selected tests' started at 2026-11-11 03:28:29.955.
+Test Suite 'TMDBAppPackageTests.xctest' started at 2026-11-11 03:28:29.956.
+Test Suite 'TMDBAppPackageTests.xctest' passed at 2026-11-11 03:28:29.956.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-11 03:28:29.956.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Acceptance 08: app shell" started.
+◇ Test previewServesMockData() started.
+✔ Test previewServesMockData() passed after 0.001 seconds.
+◇ Test previewListViewModelLoads() started.
+✔ Test previewListViewModelLoads() passed after 0.001 seconds.
+◇ Test liveWithoutKeyFailsCleanly() started.
+✔ Test liveWithoutKeyFailsCleanly() passed after 0.002 seconds.
+◇ Test searchViewModelComesFromDependencies() started.
+✔ Test searchViewModelComesFromDependencies() passed after 0.001 seconds.
+◇ Test viewsCanBeBuilt() started.
+✔ Test viewsCanBeBuilt() passed after 0.001 seconds.
+✔ Suite "Acceptance 08: app shell" passed after 0.003 seconds.
+✔ Test run with 5 tests in 1 suite passed after 0.003 seconds.

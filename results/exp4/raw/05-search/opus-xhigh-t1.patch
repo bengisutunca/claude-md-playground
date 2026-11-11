@@ -1,0 +1,321 @@
+diff --git a/Sources/TMDBApp/ViewModels/SearchViewModel.swift b/Sources/TMDBApp/ViewModels/SearchViewModel.swift
+new file mode 100644
+index 0000000..0bd08ce
+--- /dev/null
++++ b/Sources/TMDBApp/ViewModels/SearchViewModel.swift
+@@ -0,0 +1,68 @@
++import Foundation
++import Observation
++
++@MainActor
++@Observable
++final class SearchViewModel {
++    /// Queries shorter than this, after trimming whitespace, are not sent to the service.
++    nonisolated static let minimumQueryLength = 2
++
++    /// Bound to the search field. Every change schedules a new debounced search.
++    var query = "" {
++        didSet { scheduleSearch(debounced: true) }
++    }
++    private(set) var state: ViewState<[Movie]> = .idle
++
++    @ObservationIgnored private let service: any MovieService
++    @ObservationIgnored private let debounce: Duration
++    @ObservationIgnored private let sleep: @Sendable (Duration) async throws -> Void
++    @ObservationIgnored private var searchTask: Task<Void, Never>?
++
++    /// - Parameter sleep: Waits out the debounce. Tests inject a fake so they never wait in real time.
++    init(service: any MovieService,
++         debounce: Duration = .milliseconds(300),
++         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
++        self.service = service
++        self.debounce = debounce
++        self.sleep = sleep
++    }
++
++    /// Returns once the currently scheduled search, if any, has finished.
++    func waitForSearch() async {
++        await searchTask?.value
++    }
++
++    /// Runs the search for the current query again, without the debounce.
++    func retry() {
++        scheduleSearch(debounced: false)
++    }
++
++    /// Cancels the previous search, so only the latest query reaches the service.
++    private func scheduleSearch(debounced: Bool) {
++        searchTask?.cancel()
++        searchTask = nil
++        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
++        guard term.count >= Self.minimumQueryLength else {
++            state = .idle
++            return
++        }
++        searchTask = Task { await self.search(term, debounced: debounced) }
++    }
++
++    private func search(_ term: String, debounced: Bool) async {
++        if debounced {
++            do { try await self.sleep(debounce) } catch { return }
++        }
++        // `sleep` may return normally even after a newer query cancelled this search.
++        guard !Task.isCancelled else { return }
++        state = .loading
++        do {
++            let response = try await service.search(query: term, page: 1)
++            guard !Task.isCancelled else { return }
++            state = response.results.isEmpty ? .empty : .loaded(response.results)
++        } catch {
++            guard !Task.isCancelled else { return }
++            state = .failed(MovieListViewModel.message(for: error))
++        }
++    }
++}
+diff --git a/Sources/TMDBApp/Views/SearchView.swift b/Sources/TMDBApp/Views/SearchView.swift
+new file mode 100644
+index 0000000..e9d002c
+--- /dev/null
++++ b/Sources/TMDBApp/Views/SearchView.swift
+@@ -0,0 +1,52 @@
++import SwiftUI
++
++struct SearchView: View {
++    @State private var viewModel: SearchViewModel
++
++    init(viewModel: SearchViewModel) {
++        _viewModel = State(initialValue: viewModel)
++    }
++
++    var body: some View {
++        content
++            .navigationTitle("Search")
++            .searchable(text: $viewModel.query, placement: searchFieldPlacement, prompt: "Movie title")
++    }
++
++    @ViewBuilder
++    private var content: some View {
++        switch viewModel.state {
++        case .idle:
++            ContentUnavailableView(
++                "Search Movies",
++                systemImage: "magnifyingglass",
++                description: Text("Type at least \(SearchViewModel.minimumQueryLength) characters.")
++            )
++        case .loading:
++            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
++        case .empty:
++            ContentUnavailableView.search(text: viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines))
++        case .failed(let message):
++            ContentUnavailableView {
++                Label("Search Failed", systemImage: "exclamationmark.triangle")
++            } description: {
++                Text(message)
++            } actions: {
++                Button("Try Again") { viewModel.retry() }
++                    .buttonStyle(.borderedProminent)
++            }
++        case .loaded(let movies):
++            List(movies) { movie in
++                MovieRowView(movie: movie)
++            }
++        }
++    }
++
++    private var searchFieldPlacement: SearchFieldPlacement {
++        #if os(iOS)
++        return .navigationBarDrawer(displayMode: .always)
++        #else
++        return .automatic
++        #endif
++    }
++}
+diff --git a/Tests/TMDBAppTests/SearchViewModelTests.swift b/Tests/TMDBAppTests/SearchViewModelTests.swift
+new file mode 100644
+index 0000000..1a4d0b2
+--- /dev/null
++++ b/Tests/TMDBAppTests/SearchViewModelTests.swift
+@@ -0,0 +1,183 @@
++import Foundation
++import Testing
++@testable import TMDBApp
++
++/// Stand-in for the debounce `sleep`. Records every call and returns at once, or, when `holding`,
++/// suspends each caller until the test releases it. It ignores cancellation on purpose: the view
++/// model must not rely on `sleep` throwing to drop a superseded search.
++private actor FakeSleep {
++    private(set) var durations: [Duration] = []
++    private let holding: Bool
++    private var held: [CheckedContinuation<Void, Never>] = []
++    private var waiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
++
++    init(holding: Bool = false) { self.holding = holding }
++
++    nonisolated var closure: @Sendable (Duration) async throws -> Void {
++        { await self.sleep($0) }
++    }
++
++    func sleep(_ duration: Duration) async {
++        durations.append(duration)
++        guard holding else {
++            resumeWaiters()
++            return
++        }
++        await withCheckedContinuation { continuation in
++            held.append(continuation)
++            resumeWaiters()
++        }
++    }
++
++    /// Returns once `count` calls to `sleep` have started.
++    func waitForCalls(_ count: Int) async {
++        guard durations.count < count else { return }
++        await withCheckedContinuation { waiters.append((count, $0)) }
++    }
++
++    /// Lets the oldest held `sleep` call return.
++    func releaseNext() {
++        guard !held.isEmpty else {
++            Issue.record("no sleep call is being held")
++            return
++        }
++        held.removeFirst().resume()
++    }
++
++    private func resumeWaiters() {
++        let ready = waiters.filter { $0.count <= durations.count }
++        waiters.removeAll { $0.count <= durations.count }
++        ready.forEach { $0.continuation.resume() }
++    }
++}
++
++@MainActor
++@Suite("SearchViewModel")
++struct SearchViewModelTests {
++    private func loadedMovies(_ vm: SearchViewModel) -> [Movie] {
++        if case .loaded(let movies) = vm.state { return movies }
++        return []
++    }
++
++    @Test func shortQueryDoesNotCallService() async {
++        let service = MockMovieService()
++        let sleep = FakeSleep()
++        let vm = SearchViewModel(service: service, sleep: sleep.closure)
++        for query in ["", "i", "  i  ", "   ", "\n"] {
++            vm.query = query
++            await vm.waitForSearch()
++            #expect(vm.state == .idle)
++        }
++        #expect(await service.calls.isEmpty)
++        #expect(await sleep.durations.isEmpty)
++    }
++
++    @Test func shortQueryClearsPreviousResults() async {
++        let service = MockMovieService()
++        let vm = SearchViewModel(service: service, sleep: FakeSleep().closure)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        #expect(loadedMovies(vm).count == 1)
++
++        vm.query = "i"
++        #expect(vm.state == .idle)
++        await vm.waitForSearch()
++        #expect(vm.state == .idle)
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++    }
++
++    @Test func rapidTypingTriggersOnlyOneSearch() async {
++        let service = MockMovieService()
++        let sleep = FakeSleep()
++        let vm = SearchViewModel(service: service, debounce: .milliseconds(250), sleep: sleep.closure)
++        for query in ["i", "in", "inc", "ince", "incep", "incept", "incepti", "inceptio", "inception"] {
++            vm.query = query
++        }
++        await vm.waitForSearch()
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++        #expect(loadedMovies(vm).map(\.title) == ["Inception"])
++        #expect(await sleep.durations.allSatisfy { $0 == .milliseconds(250) })
++    }
++
++    /// Deterministic version of the race above: the superseded search's `sleep` returns normally,
++    /// and the test waits for that search to finish before checking the service.
++    @Test func supersededSearchDoesNotCallService() async {
++        let service = MockMovieService()
++        let sleep = FakeSleep(holding: true)
++        let vm = SearchViewModel(service: service, sleep: sleep.closure)
++        vm.query = "in"
++        let typing = Task {
++            await sleep.waitForCalls(1)
++            vm.query = "inception"     // supersedes "in" while it is debouncing
++            await sleep.waitForCalls(2)
++            await sleep.releaseNext()  // "in" wakes up despite being cancelled
++        }
++        await vm.waitForSearch()       // the "in" search, captured before `typing` runs
++        #expect(await service.calls.isEmpty)
++        #expect(vm.state == .idle)
++
++        await typing.value
++        await sleep.releaseNext()
++        await vm.waitForSearch()       // the "inception" search
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++        #expect(loadedMovies(vm).map(\.title) == ["Inception"])
++    }
++
++    @Test func searchWaitsForDebounceBeforeCallingService() async {
++        let service = MockMovieService()
++        let sleep = FakeSleep(holding: true)
++        let vm = SearchViewModel(service: service, sleep: sleep.closure)
++        vm.query = "inception"
++        await sleep.waitForCalls(1)
++        #expect(await sleep.durations == [.milliseconds(300)])
++        #expect(await service.calls.isEmpty)
++
++        await sleep.releaseNext()
++        await vm.waitForSearch()
++        #expect(await service.calls == [.search(query: "inception", page: 1)])
++    }
++
++    @Test func searchInceptionResult() async throws {
++        let service = MockMovieService()
++        let vm = SearchViewModel(service: service, sleep: FakeSleep().closure)
++        vm.query = "  Inception \n"
++        await vm.waitForSearch()
++        let movie = try #require(loadedMovies(vm).first)
++        #expect(loadedMovies(vm).count == 1)
++        #expect(movie.id == 27205)
++        #expect(movie.title == "Inception")
++        #expect(await service.calls == [.search(query: "Inception", page: 1)])
++    }
++
++    @Test func searchEmptyGivesEmptyState() async {
++        let service = MockMovieService()  // answers the query "empty" with search_empty.json
++        let vm = SearchViewModel(service: service, sleep: FakeSleep().closure)
++        vm.query = "empty"
++        await vm.waitForSearch()
++        #expect(vm.state == .empty)
++        #expect(await service.calls == [.search(query: "empty", page: 1)])
++    }
++
++    @Test func errorState() async {
++        let service = MockMovieService(error: APIError.httpStatus(code: 401, message: "bad key"))
++        let vm = SearchViewModel(service: service, sleep: FakeSleep().closure)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        #expect(vm.state == .failed("Invalid API key."))
++    }
++
++    @Test func retryAfterErrorSucceedsWithoutDebounce() async {
++        let service = MockMovieService(error: APIError.transport(URLError(.notConnectedToInternet)))
++        let sleep = FakeSleep()
++        let vm = SearchViewModel(service: service, sleep: sleep.closure)
++        vm.query = "inception"
++        await vm.waitForSearch()
++        guard case .failed = vm.state else { Issue.record("expected failed"); return }
++
++        await service.setError(nil)
++        vm.retry()
++        await vm.waitForSearch()
++        #expect(loadedMovies(vm).map(\.id) == [27205])
++        #expect(await sleep.durations.count == 1)
++    }
++}

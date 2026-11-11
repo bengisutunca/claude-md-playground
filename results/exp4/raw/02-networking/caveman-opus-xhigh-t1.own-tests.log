@@ -1,0 +1,66 @@
+[0/1] Planning build
+Building for debugging...
+[0/1] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.08s)
+Test Suite 'All tests' started at 2026-11-10 22:36:49.776.
+Test Suite 'All tests' passed at 2026-11-10 22:36:49.776.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "APIConfiguration" started.
+◇ Suite "Smoke" started.
+◇ Suite "Endpoint" started.
+◇ Suite "TMDBClient" started.
+◇ Suite "Model decoding" started.
+◇ Test baseURLsAreValid() started.
+◇ Test throwsWhenKeyIsMissingOrBlank(environment:) started.
+◇ Test readsKeyFromEnvironment() started.
+◇ Test escapesReservedCharactersInSearchQuery() started.
+◇ Test httpStatusWithoutTMDBBodyHasNilMessage() started.
+◇ Test fallsBackToInfoPlist() started.
+◇ Test buildsRequest(endpoint:path:extraItems:) started.
+◇ Test popularPage1() started.
+◇ Test decodesSuccessResponse() started.
+◇ Test mapsTMDBErrorBodyToHTTPStatus() started.
+◇ Test nullImagePathsDecodeAsNil() started.
+◇ Test movieDetail() started.
+◇ Test ratingTextUsesOneDecimal() started.
+◇ Test movieCredits() started.
+◇ Test fixturesAreValidJSON() started.
+◇ Test popularPage2EmptyReleaseDate() started.
+◇ Test reportsDecodingFailure() started.
+◇ Test case passing 1 argument environment → [:] to throwsWhenKeyIsMissingOrBlank(environment:) started.
+◇ Test case passing 1 argument environment → ["TMDB_API_KEY": ""] to throwsWhenKeyIsMissingOrBlank(environment:) started.
+◇ Test case passing 1 argument environment → ["TMDB_API_KEY": "  \n"] to throwsWhenKeyIsMissingOrBlank(environment:) started.
+◇ Test case passing 3 arguments endpoint → .popular(page: 2), path → "/3/movie/popular", extraItems → ["page": "2"] to buildsRequest(endpoint:path:extraItems:) started.
+◇ Test case passing 3 arguments endpoint → .search(query: "Spirited Away", page: 3), path → "/3/search/movie", extraItems → ["query": "Spirited Away", "page": "3"] to buildsRequest(endpoint:path:extraItems:) started.
+◇ Test case passing 3 arguments endpoint → .movieDetail(id: 27205), path → "/3/movie/27205", extraItems → [:] to buildsRequest(endpoint:path:extraItems:) started.
+◇ Test case passing 3 arguments endpoint → .credits(movieID: 27205), path → "/3/movie/27205/credits", extraItems → [:] to buildsRequest(endpoint:path:extraItems:) started.
+✔ Test baseURLsAreValid() passed after 0.001 seconds.
+✔ Test escapesReservedCharactersInSearchQuery() passed after 0.002 seconds.
+✔ Test buildsRequest(endpoint:path:extraItems:) with 4 test cases passed after 0.002 seconds.
+✔ Test readsKeyFromEnvironment() passed after 0.002 seconds.
+✔ Test throwsWhenKeyIsMissingOrBlank(environment:) with 3 test cases passed after 0.002 seconds.
+✔ Test fallsBackToInfoPlist() passed after 0.002 seconds.
+✔ Test ratingTextUsesOneDecimal() passed after 0.002 seconds.
+✔ Test movieCredits() passed after 0.002 seconds.
+✔ Suite "Endpoint" passed after 0.002 seconds.
+✔ Suite "APIConfiguration" passed after 0.002 seconds.
+✔ Test movieDetail() passed after 0.002 seconds.
+✔ Test nullImagePathsDecodeAsNil() passed after 0.002 seconds.
+✔ Test popularPage2EmptyReleaseDate() passed after 0.002 seconds.
+✔ Test popularPage1() passed after 0.002 seconds.
+✔ Test fixturesAreValidJSON() passed after 0.002 seconds.
+✔ Suite "Smoke" passed after 0.002 seconds.
+✔ Suite "Model decoding" passed after 0.002 seconds.
+✔ Test httpStatusWithoutTMDBBodyHasNilMessage() passed after 0.003 seconds.
+✔ Test mapsTMDBErrorBodyToHTTPStatus() passed after 0.003 seconds.
+✔ Test reportsDecodingFailure() passed after 0.003 seconds.
+✔ Test decodesSuccessResponse() passed after 0.003 seconds.
+✔ Suite "TMDBClient" passed after 0.003 seconds.
+✔ Test run with 17 tests in 5 suites passed after 0.003 seconds.
